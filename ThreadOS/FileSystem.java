@@ -38,7 +38,7 @@ public class FileSystem {
             return -1;
 
         superblock.format(files);
-        directory = new Directory(superblock.totalInodes);
+        directory = new Directory(superblock.totalINodes);
         filetable = new FileTable(directory);
 
         return 0;
@@ -90,7 +90,7 @@ public class FileSystem {
             //bytes as possible, putting them into the beginning of buffer.
             while(temp.seekPtr < fileSize && (buffSize > 0))
             {
-                int bID = temp.inode.getBlockID(temp.seekPtr);
+                int bID = FileSystemHelper.calculateBlockNumber(temp.iNumber);
 
                 byte[] data = new byte[Disk.blockSize];
                 SysLib.rawread(bID, data);
