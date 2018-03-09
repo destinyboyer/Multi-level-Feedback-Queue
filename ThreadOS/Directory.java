@@ -9,7 +9,6 @@
  */
 public class Directory {
 
-    private static final int INT_BYTE_SIZE = 4;     /* integer is 4 bytes */
     private static final int MAX_CHAR_SIZE = 60;    /* char is two bytes */
     private static int maxChars = 30;               /* max characters of each file name */
 
@@ -58,7 +57,7 @@ public class Directory {
         // Also increments our offset.
         for (int index = 0; index < this.fileSizes.length; index++) {
 
-            this.incrementOffset(INT_BYTE_SIZE);
+            this.incrementOffset(FileSystemHelper.INT_BYT_SIZE);
             this.fileSizes[index] = SysLib.bytes2int(data, offset);
         }
 
@@ -87,14 +86,14 @@ public class Directory {
      */
     public byte[] directory2bytes( ) {
         // buffer size is equal to the sum of the number of bytes of fileNames and fileSizes
-        int bufferSize = (this.fileSizes.length * INT_BYTE_SIZE) + (this.fileNames.length * MAX_CHAR_SIZE);
+        int bufferSize = (this.fileSizes.length * FileSystemHelper.INT_BYT_SIZE) + (this.fileNames.length * MAX_CHAR_SIZE);
 
         // initialize the buffer
         byte[] buffer = new byte[bufferSize];
 
         // writing the file size to disk
         for (int fileSize : this.fileSizes) {
-            this.incrementOffset(INT_BYTE_SIZE);
+            this.incrementOffset(FileSystemHelper.INT_BYT_SIZE);
             SysLib.int2bytes(fileSize, buffer, offset);
         }
 
@@ -128,7 +127,7 @@ public class Directory {
         }
 
         // there was an error, we have no inodes that are free to allocate
-        return -1;
+        return FileSystemHelper.INVALID;
     }
 
     /**
@@ -137,13 +136,10 @@ public class Directory {
      *
      * @param iNumber file to delete
      */
-    public boolean ifree(short iNumber) {
-        if (this.isValidINumber(iNumber)) {
-            this.fileSizes[iNumber] = 0;    // set the size to 0 since we are freeing it
-            return true;    // success
+    public void removeFromDirectory(short iNumber) {
+        if (this.isAllocatedINumber(iNumber)) {
+            this.fileSizes[iNumber] = FileSystemHelper.NOT_ALLOCATED;
         }
-
-        return false;
     }
 
     /**
@@ -151,7 +147,7 @@ public class Directory {
      *
      * @param fileName whose iNumber we want to fetch
      */
-    public short namei(String fileName) {
+    public short getInumberByFileName(String fileName) {
         for (short index = 0; index < this.fileSizes.length; index++) {
 
             // if they do not have a matching length then we will for sure know that they
@@ -165,7 +161,7 @@ public class Directory {
                 return index;
             }
         }
-        return -1;
+        return FileSystemHelper.INVALID;
     }
 
     /**
@@ -174,23 +170,14 @@ public class Directory {
      *
      * @param iNumber block to check for validity
      */
-    private boolean isValidINumber(int iNumber) {
+    private boolean isAllocatedINumber(int iNumber) {
         // out of range
-        if (iNumber >= this.fileSizes.length) {
-            return false;
-        }
-
-        // out of range
-        if (iNumber < 0) {
+        if (iNumber >= this.fileSizes.length || iNumber < 0) {
             return false;
         }
 
         // we can't free a block that isn't yet allocated
-        if (this.fileSizes[iNumber] == 0) {
-            return false;
-        }
-
-        return true;
+        return (this.fileSizes[iNumber] != FileSystemHelper.NOT_ALLOCATED);
     }
 
     /**
@@ -207,5 +194,37 @@ public class Directory {
      */
     private void incrementOffset(int amount) {
         this.offset = this.offset + amount;
+    }
+
+    public static int getMaxChars() {
+        return maxChars;
+    }
+
+    public static void setMaxChars(int maxChars) {
+        Directory.maxChars = maxChars;
+    }
+
+    public int getOffset() {
+        return offset;
+    }
+
+    public void setOffset(int offset) {
+        this.offset = offset;
+    }
+
+    public int[] getFileSizes() {
+        return fileSizes;
+    }
+
+    public void setFileSizes(int[] fileSizes) {
+        this.fileSizes = fileSizes;
+    }
+
+    public char[][] getFileNames() {
+        return fileNames;
+    }
+
+    public void setFileNames(char[][] fileNames) {
+        this.fileNames = fileNames;
     }
 }
