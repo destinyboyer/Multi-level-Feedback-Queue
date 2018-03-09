@@ -6,11 +6,9 @@ public class Superblock {
 
     private static final int DEFAULT_TOTAL_INODE_BLOCKS = 64;
 
-    public int totalBlocks;     /* the number of disk blocks */
-    public int totalINodes;     /* the number of inodes */
-    public int freeList;        /* the block number of the free list's head */
-    public int freeListHead;
-    public int freeListTail;
+    private int totalBlocks;     /* the number of disk blocks */
+    private int totalINodes;     /* the number of inodes */
+    private int freeList;        /* the block number of the free list's head */
 
     /**
      * Initializes a Superblock object with the provided disk size.
@@ -34,7 +32,6 @@ public class Superblock {
         // ahead and use a default configuration
         if (configNotValid(diskSize)) {
             this.totalBlocks = diskSize;
-            this.freeListTail = diskSize - 1;
             this.format(DEFAULT_TOTAL_INODE_BLOCKS);
         }
     }
@@ -47,16 +44,13 @@ public class Superblock {
      * @return if the configuration read from disk is valid
      */
     private boolean configNotValid(int diskSize) {
-        if (this.totalBlocks == diskSize && this.totalINodes > 0 &&
-                this.freeListTail <= this.totalBlocks && this.freeListHead >= 2) {
+        if (this.totalBlocks == diskSize && this.totalINodes > 0 && this.freeList >= 2) {
             return true;
         }
         return false;
     }
 
     /**
-     *
-     *
      * @param totalINodes maximum number of files to be created
      */
     public void format(int totalINodes) {
@@ -91,6 +85,9 @@ public class Superblock {
         this.writeSuperblock();
     }
 
+    /**
+     * Writes the block info to disk.
+     */
     private void writeSuperblock() {
         byte blockInfo[] = new byte[Disk.blockSize];
 
@@ -101,6 +98,10 @@ public class Superblock {
         SysLib.rawwrite(0, blockInfo);
     }
 
+    /**
+     * Reads all of the data for a super block and sets the totalBlocks,
+     * totalINodes, and freeList.
+     */
     private void readSuperblock() {
         // Disk determines our block size
         byte blockInfo[] = new byte[Disk.blockSize];
@@ -111,8 +112,70 @@ public class Superblock {
         // read the number of disk blocks from blockInfo
         this.totalBlocks = SysLib.bytes2int(blockInfo, 0);
         this.totalINodes = SysLib.bytes2int(blockInfo, 4);
-        this.freeListTail = SysLib.bytes2int(blockInfo, 8);
-        this.freeListTail = SysLib.bytes2int(blockInfo, 12);
+        this.freeList = SysLib.bytes2int(blockInfo, 8);
+    }
+
+    /**
+     * Flushes all of the data from the given block number and sets the
+     * free list to the block.
+     *
+     * @param blockNumber of the block to free
+     */
+    public void freeBlock(int blockNumber) {
+        byte data[] = new byte[Disk.blockSize];
+
+        for(int index = 0; index < Disk.blockSize; index++) {
+            data[index] = 0;
+        }
+
+        // scrub all data from that block
+        SysLib.int2bytes(this.freeList, data, 0);
+        SysLib.rawwrite(blockNumber, data);
+        this.freeList = blockNumber;
+    }
+
+    /**
+     * Gets the freeblock and reads that blocks data.
+     *
+     * @return the iNumber of the free block.
+     */
+    public short getFreeBlock() {
+        // there are no free blocks
+        if (this.freeList == FileSystemHelper.INVALID) {
+            return FileSystemHelper.INVALID;
+        }
+
+        int freeBlock = this.freeList;
+
+        byte data[] = new byte[Disk.blockSize];
+        SysLib.rawread(freeBlock, data);
+        this.freeList = SysLib.bytes2int(data, 0);
+
+        return (short) freeBlock;
+    }
+
+    public int getTotalBlocks() {
+        return totalBlocks;
+    }
+
+    public void setTotalBlocks(int totalBlocks) {
+        this.totalBlocks = totalBlocks;
+    }
+
+    public int getTotalINodes() {
+        return totalINodes;
+    }
+
+    public void setTotalINodes(int totalINodes) {
+        this.totalINodes = totalINodes;
+    }
+
+    public int getFreeList() {
+        return freeList;
+    }
+
+    public void setFreeList(int freeList) {
+        this.freeList = freeList;
     }
 }
 
