@@ -1,15 +1,13 @@
 /*Edited FileTable class for CSS430 Final Project
 
-DONE
-
 
  */
 import java.util.Vector;
 
 public class FileTable {
 
-    public Vector table;         // the actual entity of this file table
-    private Directory dir;        // the root directory
+    public Vector<FileTableEntry> table;        // the actual entity of this file table
+    private Directory dir;                      // the root directory
 
 
     public FileTable( Directory directory ) { // constructor
@@ -28,7 +26,7 @@ public class FileTable {
         if(filename.equals("/"))
             nodeNum = 0;
         else
-            nodeNum = dir.namei(filename);
+            nodeNum = dir.getInumberByFileName(filename);
 
         while(true)
         {
@@ -36,13 +34,13 @@ public class FileTable {
             if(filename.equals("/"))
                 nodeNum = 0;
             else
-                nodeNum = dir.namei(filename);
+                nodeNum = dir.getInumberByFileName(filename);
 
             //Check for file
             if(nodeNum >= 0)
             {
                 node = new Inode(nodeNum);
-                if(mode.equals("r"))
+                if(mode.equals(FileSystemHelper.READ_ONLY))
                 {
                     if(node.flag == 3)
                     {
