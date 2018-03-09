@@ -3,6 +3,17 @@ public class FileSystemHelper {
     public static final int INDOES_PER_BLOCK = 16;
     public static final int INODE_BYTE_SIZE = 32;
     public static final int SHORT_BYTE_SIZE = 2;
+    public static final int INT_BYT_SIZE = 4;
+    public static final String READ_ONLY = "r";
+    public static final String READ_WRITE = "w+";
+    public static final String WRITE_ONLY = "w";
+    public static final String APPEND = "a";
+    public final static int iNodeSize = 32;        /* fix to 32 bytes */
+    public final static int directSize = 11;       /* # direct pointers */
+    public final static int FREE = -1;
+    public final static int INVALID = -1;
+    public final static int TOTAL_POINTERS = 256;
+    public final static int NOT_ALLOCATED = 0;
 
     public static int calculateBlockNumber(int iNumber) {
         return iNumber / INDOES_PER_BLOCK + 1;
