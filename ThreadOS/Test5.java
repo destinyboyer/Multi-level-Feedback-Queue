@@ -39,21 +39,21 @@ class Test5 extends Thread {
     if ( test10( ) ) // write buf[512 * 13]
       SysLib.cout("Correct behavior of writing a lot of bytes....0.5\n");
     test11( );       // close fd
-    if ( test12( ) ) // read buf[512 * 13] from "bothell"
-      SysLib.cout("Correct behavior of reading a lot of bytes....0.5\n");
-    if ( test13( ) ) // append buf[32] to "bothell"
-              SysLib.cout("Correct behavior of appending to a large file.0.5\n");
-//    if ( test14( ) ) // seek and read from "bothell"
+//    if ( test12( ) ) // read buf[512 * 13] from "bothell"
+//      SysLib.cout("Correct behavior of reading a lot of bytes....0.5\n");
+//    if ( test13( ) ) // append buf[32] to "bothell"
+//              SysLib.cout("Correct behavior of appending to a large file.0.5\n");
+////    if ( test14( ) ) // seek and read from "bothell"
 //      SysLib.cout("Correct behavior of seeking in a large file...0.5\n");
 //    if ( test15( ) ) // open "bothell" with "w+"
 //      SysLib.cout("Correct behavior of read/writing a large file.0.5\n");
 
-    if ( test16( ) ) // delete "css430"
-      SysLib.cout("Correct behavior of delete....................0.5\n");
-    if ( test17( ) ) // create "uwb0" - "uwb45" of buf[512 * 13]
-      SysLib.cout("Correct behavior of creating over 40 files ...0.5\n");
-    if ( test18( ) ) // "uwb1" read/written among Test5 and Test6
-      SysLib.cout("Correct behavior of two fds to the same file..0.5\n");
+//    if ( test16( ) ) // delete "css430"
+//      SysLib.cout("Correct behavior of delete....................0.5\n");
+//    if ( test17( ) ) // create "uwb0" - "uwb45" of buf[512 * 13]
+//      SysLib.cout("Correct behavior of creating over 40 files ...0.5\n");
+//    if ( test18( ) ) // "uwb1" read/written among Test5 and Test6
+//      SysLib.cout("Correct behavior of two fds to the same file..0.5\n");
 
 //    SysLib.cout( "Test completed\n" );
     SysLib.exit( );

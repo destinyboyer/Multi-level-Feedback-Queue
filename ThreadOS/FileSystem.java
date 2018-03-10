@@ -125,7 +125,7 @@ public class FileSystem {
 
         while (entry.seekPtr < getFileSize(entry) && (bytesRemaining > 0)) {
 
-            short bID = entry.inode.findTargetBlock(entry.seekPtr);
+            short bID = entry.inode.findBlockForOffset(entry.seekPtr);
             byte[] data = new byte[Disk.blockSize];
 
             if (bID < 0 || bID >= FileSystemHelper.directSize) {
@@ -173,7 +173,7 @@ public class FileSystem {
         // while we still have data to write
         while(bytesInBuffer > 0) {
 
-            short blockNumber = entry.inode.findTargetBlock(entry.seekPtr);
+            short blockNumber = entry.inode.findBlockForOffset(entry.seekPtr);
 
             // no target block was found
             if (blockNumber == FileSystemHelper.FREE) {
@@ -185,7 +185,7 @@ public class FileSystem {
                 if (entry.inode.getFreeDirectPoinerForBlock(blockNumber) > FileSystemHelper.FREE) {
 
                 // try to get indirect pointer if there was not a direct pointer
-                } else if (entry.inode.setIndexBlock(blockNumber)) {
+                } else if (entry.inode.setInumberBlock(blockNumber)) {
                     blockNumber = superblock.getFreeBlock();
                     entry.inode.setIndirectPointer(blockNumber);
 
