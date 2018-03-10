@@ -92,6 +92,8 @@ public class Kernel
                         // instantiate synchronized queues
                         ioQueue = new SyncQueue( );
                         waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
+
+                        fileSystem = new FileSystem(1000);
                         return OK;
                     case EXEC:
                         return sysExec( ( String[] )args );
@@ -216,6 +218,7 @@ public class Kernel
                         return OK;
 
                     case FORMAT:
+                        SysLib.cerr("Inside format in Kernel");
                         return fileSystem.format(param);
                     case DELETE:  // to be implemented in project
                         return OK;

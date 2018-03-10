@@ -15,6 +15,8 @@ public class FileSystem {
     public FileSystem(int diskBlocks) {
 
         superblock = new Superblock(diskBlocks);
+
+
         directory = new Directory(superblock.getTotalINodes());
         filetable = new FileTable(directory);
 
@@ -38,6 +40,7 @@ public class FileSystem {
         // check for a system of at least 1 file, and make sure that our
         // that our file table is empty before formatting
         if (files > 0 && filetable.fempty()) {
+            SysLib.cerr("inside format in FileSystem");
             superblock.format(files);
             return SUCCESS;
         }

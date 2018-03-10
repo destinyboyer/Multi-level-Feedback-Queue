@@ -13,6 +13,7 @@ public class SysLib {
      * @return 0 on success, -1 otherwise
      */
     public static int format(int files) {
+        SysLib.cerr("Inside format in SysLib");
         return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE,
                 Kernel.FORMAT, files, null);
     }
@@ -25,9 +26,9 @@ public class SysLib {
      * @return number between 3 and 31 if successful, -1 if there was an error
      */
     public static int open(String fileName, String mode) {
-        String parms[] = {fileName, mode};
+        String params[] = {fileName, mode};
         return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE,
-                Kernel.OPEN, 0, parms);
+                Kernel.OPEN, 0, params);
     }
 
     /**

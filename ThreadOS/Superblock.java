@@ -30,7 +30,7 @@ public class Superblock {
 
         // if the configuration that was read from disk is not valid then go
         // ahead and use a default configuration
-        if (configNotValid(diskSize)) {
+        if (configValid(diskSize) == false) {
             this.totalBlocks = diskSize;
             this.format(DEFAULT_TOTAL_INODE_BLOCKS);
         }
@@ -43,20 +43,15 @@ public class Superblock {
      * @param diskSize should be equal to totalBlocks
      * @return if the configuration read from disk is valid
      */
-    private boolean configNotValid(int diskSize) {
-        if (this.totalBlocks == diskSize && this.totalINodes > 0 && this.freeList >= 2) {
-            return true;
-        }
-        return false;
+    private boolean configValid(int diskSize) {
+        return (this.totalBlocks == diskSize && this.totalINodes > 0 && this.freeList >= 2);
+
     }
 
     /**
      * @param totalINodes maximum number of files to be created
      */
     public void format(int totalINodes) {
-
-        // TODO: check for valid totalINodes size
-
         this.totalINodes = totalINodes;
 
         // calculate the pointer for freeList.
