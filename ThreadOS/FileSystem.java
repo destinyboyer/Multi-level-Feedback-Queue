@@ -16,20 +16,26 @@ public class FileSystem {
      * Constructor.
      */
     public FileSystem(int diskBlocks) {
-
+        // initialize the superblock
         superblock = new Superblock(diskBlocks);
-        directory = new Directory(superblock.getTotalINodes());
+
+        // initialize the directory with the correct number of files
+        directory = new Directory(superblock.totalINodes);
+
+        // initialize the file table with the given directory
         filetable = new FileTable(directory);
 
-        //Open base
+        // assemble our directory
         FileTableEntry entry = open("/", Mode.READ_ONLY);
-        int dSize = getFileSize(entry);
-        if (dSize > 0) {
-            byte[] dirData = new byte[dSize];
-            read(entry, dirData);
-            directory.bytes2directory(dirData);
+        int directorySize = this.getFileSize(entry);
+
+        if (directorySize > 0) {
+            byte[] directoryData = new byte[directorySize];
+            this.read(entry, directoryData);
+            this.directory.bytes2directory(directoryData);
         }
 
+        // close the file entry since we are done with it
         close(entry);
     }
 
@@ -102,8 +108,13 @@ public class FileSystem {
         return entry;
     }
 
-    //Reads up to buffer.length bytes from the file indicated by fd,
-    //starting at the position currently pointed to by the seek pointer.
+    /**
+     * Reads up to buffer.length bytes from the file indicated by fd,
+     * starting at the position currently pointed to by the seek pointer.
+     *
+     * @param entry to read
+     * @param buffer to read from
+     */
     public int read(FileTableEntry entry, byte buffer[]) {
         //mode is w/a return -1 for error
         if (entry.mode.equals(Mode.WRITE_ONLY) || entry.mode.equals(Mode.APPEND))
@@ -111,7 +122,6 @@ public class FileSystem {
 
         if (buffer == null || buffer.length == 0)
             return FileSystemHelper.INVALID;
-
 
         int offset = 0;
         int bytesRemaining = buffer.length;
@@ -133,20 +143,29 @@ public class FileSystem {
             byte[] data = new byte[Disk.blockSize];
             SysLib.rawread(bID, data);
 
+            // if there are more bytes remaining than our block size then we want to read in
+            // an entire block size
             if (bytesRemaining > Disk.blockSize) {
                 System.arraycopy(data, entry.seekPtr % Disk.blockSize, buffer, offset, Disk.blockSize);
                 bytesRemaining = bytesRemaining - Disk.blockSize;
                 offset = offset + Disk.blockSize;
                 entry.seekPtr = entry.seekPtr + Disk.blockSize;
                 bRead = bRead + Disk.blockSize;
+
+                // otherwise just read in the bytes remaining
             } else {
                 System.arraycopy(data, entry.seekPtr % Disk.blockSize, buffer, offset, bytesRemaining);
                 bRead = bRead + bytesRemaining;
+
+                // just for sanity, should never be used
+                bytesRemaining = 0;
                 break;
             }
+
         }
-        //return the number of bytes that have been read
-        entry.seekPtr = 0;
+
+        // return the number of bytes that have been read
+        entry.seekPtr = FileSystemHelper.BEGINNING_OF_FILE;
         return bRead;
 
     }
@@ -167,7 +186,7 @@ public class FileSystem {
             short blockNumber = entry.inode.findTargetBlock(entry.seekPtr);
 
             // no target block was found
-            if(blockNumber == FileSystemHelper.FREE) {
+            if (blockNumber == FileSystemHelper.FREE) {
 
                 // get a new block
                 blockNumber = superblock.getFreeBlock();
@@ -242,7 +261,7 @@ public class FileSystem {
      */
     public int seek(FileTableEntry entry, int offset, int whence){
         // can't set the seek pointer for a null entry, bail
-        if(entry == null) {
+        if (entry == null) {
             return ERROR;
         }
 
@@ -262,6 +281,15 @@ public class FileSystem {
             default:
                 return ERROR;
         }
+
+        if (entry.seekPtr < 0) {
+            entry.seekPtr = 0;
+        }
+
+        if (entry.seekPtr > entry.inode.length) {
+            entry.seekPtr = entry.inode.length;
+        }
+
         return entry.seekPtr;
 
     }
@@ -276,12 +304,15 @@ public class FileSystem {
      * @return 0 on success, -1 otherwise
      */
     public int close(FileTableEntry entry) {
+
+        // sanity check
         if (entry == null)
             return ERROR;
 
         entry.inode.count--;
         entry.count--;
         entry.inode.flag = 0;
+
         if (filetable.ffree(entry)) {
             return SUCCESS;
         }
@@ -315,7 +346,14 @@ public class FileSystem {
 
     }
 
+    /**
+     * Deallocates all of the blocks for a given entry.
+     *
+     * @param entry to deallocate blocks for
+     * @return success
+     */
     private boolean deallocateBlocksForEntry(FileTableEntry entry) {
+        // sanity check
         if (entry == null) {
             return false;
         }
