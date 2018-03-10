@@ -9,13 +9,16 @@
  */
 public class Directory {
 
-    private static final int MAX_CHAR_SIZE = 60;    /* char is two bytes */
-    private static int maxChars = 30;               /* max characters of each file name */
+    /* char is two bytes */
+    private static final int MAX_CHAR_SIZE = 60;
+
+    /* max characters of each file name */
+    private static int maxChars = 30;
 
     private int offset = 0;
 
-    /* Directory entries */
-    private int fileSizes[];       /* each element stores a different file size. */
+    /* Directory entries, each element stores the file size for the given index */
+    private int fileSizes[];
 
     /**
      * Each element stores a different file name. The file name is stored as a
@@ -24,17 +27,17 @@ public class Directory {
     private char fileNames[][];
 
     /**
-     * Initializes a Directory object with the maximum number of files (Inodes)
+     * Initializes a Directory object with the maximum number of files {@link Inode}'s
      * to be created.
      *
-     * @param maxInumber maximum number of Inodes in the Directory
+     * @param maxInumber maximum number of files (Inodes) in the Directory
      */
     public Directory(int maxInumber) {
         fileSizes = new int[maxInumber];
 
         // initialize the size of all the files to be 0
-        for (int i = 0; i < maxInumber; i++) {
-            fileSizes[i] = 0;
+        for (int index = 0; index < maxInumber; index++) {
+            fileSizes[index] = 0;
         }
 
         fileNames = new char[maxInumber][maxChars];
@@ -56,11 +59,9 @@ public class Directory {
         // file at index equal to the file size read from data.
         // Also increments our offset.
         for (int index = 0; index < this.fileSizes.length; index++) {
-
             this.incrementOffset(FileSystemHelper.INT_BYT_SIZE);
             this.fileSizes[index] = SysLib.bytes2int(data, offset);
         }
-
 
         // Reads in the file names from data. Sets the name of the file at
         // index equal to the file name read from data. Also increments
@@ -111,15 +112,16 @@ public class Directory {
      * Allocates a new Inode number for the file with the name filename.
      *
      * @param fileName name of the file to be created
+     * @return the Inode block the file is in
      */
     public short ialloc(String fileName) {
         for (short iNodeBlock = 0; iNodeBlock < this.fileSizes.length; iNodeBlock++) {
-            int fileSize = this.fileSizes[iNodeBlock];
+            int file = this.fileSizes[iNodeBlock];
 
             // checks if the node is free, if so sets the size and name of the node.
-            if (fileSize == 0) {    // if this node is free
-                fileSize = fileName.length();
-                fileName.getChars(0, fileSize, this.fileNames[iNodeBlock], 0);
+            if (file == 0) {    // if this node is free
+                file = fileName.length();
+                fileName.getChars(0, file, this.fileNames[iNodeBlock], 0);
 
                 // return the number of the inode block that we just allocated
                 return iNodeBlock;

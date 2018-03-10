@@ -11,13 +11,25 @@
  */
 public class Inode {
 
-    public int length;                             /* file size in bytes */
-    public short count;                            /* # file-table entries pointing to this */
-    public short flag;                             /* 0 = unused, 1 = used, ... */
-    public short direct[] = new short[FileSystemHelper.directSize]; /* direct pointers */
-    public short indirect;                         /* indirect pointer */
+    /* file size in bytes */
+    public int length;
 
-    Inode( ) {                                     // a default constructor
+    /* # file-table entries pointing to this */
+    public short count;
+
+    /* 0 = unused, 1 = used, ... */
+    public short flag;
+
+    /* direct pointers */
+    public short direct[] = new short[FileSystemHelper.directSize];
+
+    /* indirect pointer */
+    public short indirect;
+
+    /**
+     * Default constructor. Initializes all data members and pointers to 0.
+     */
+    Inode() {
         this.length = 0;
         this.count = 0;
         this.flag = Flag.USED.getValue();
@@ -29,20 +41,24 @@ public class Inode {
     }
 
     /**
-     * Reads the disk block corresponding to iNumber, locates the corresponding
+     * Constructor. Reads the disk block corresponding to iNumber, locates the corresponding
      * Inode information in that block, and initializes a new Inode with that
      * information.
      *
      * @param iNumber disk block number to read
      */
     Inode(short iNumber) {
+
+        // calculate necessary variables
         int blockNumber = FileSystemHelper.calculateBlockNumber(iNumber);
         int iNodeId = FileSystemHelper.calculateInodeId(iNumber);
         int offset = FileSystemHelper.calculateOffset(iNodeId);
 
+        // create read buffer and read data from disk
         byte[] data = new byte[Disk.blockSize];
         SysLib.rawread(blockNumber, data);
 
+        // populate our data memebers
         this.length = SysLib.bytes2int(data, offset);
         offset = offset + FileSystemHelper.INT_BYT_SIZE;
 
@@ -52,6 +68,7 @@ public class Inode {
         this.flag = SysLib.bytes2short(data, offset);
         offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
 
+        // populate our pointers
         for (int index = 0; index < FileSystemHelper.directSize; index++) {
             this.direct[index] = SysLib.bytes2short(data, offset);
             offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
@@ -67,13 +84,16 @@ public class Inode {
      */
     public void toDisk(short iNumber) {
         byte data[] = new byte[Disk.blockSize];
+
+        // calculate the block number for this Inode
         int blockNumber = FileSystemHelper.calculateBlockNumber(iNumber);
 
-        // read in the data that is currently in the block number
+        // read in the data that is currently in the this block
         SysLib.rawread(blockNumber, data);
 
         int offset = FileSystemHelper.calculateOffset(iNumber);
 
+        // write all of our data members to disk
         SysLib.int2bytes(this.length, data, offset);
         offset = offset + FileSystemHelper.INT_BYT_SIZE;
 
@@ -89,52 +109,84 @@ public class Inode {
             offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
         }
 
-        // write out indirect info
+        // write out indirect pointer
         SysLib.short2bytes(this.indirect, data, offset);
         SysLib.rawwrite(blockNumber, data);
     }
 
 
+    /**
+     * Returns the first free direct pointer in the block.
+     *
+     * @param blockNumber to find the free direct pointer in
+     * @return the index of the first free direct pointer, -1 if no direct pointers are free
+     */
     public int getFreeDirectPoinerForBlock(short blockNumber) {
-        // there are no free blocks
+        // there are no free blocks, bail now
         if (blockNumber == FileSystemHelper.INVALID) {
             return FileSystemHelper.INVALID;
         }
 
         // get the first free direct pointer
         for (int index = 0; index < FileSystemHelper.directSize; index++) {
-            // this direct pointer is unused
+
+            // if this direct pointer is unused
             if (this.direct[index] == FileSystemHelper.FREE) {
+
                 // set it to our block number
                 this.direct[index] = blockNumber;
+
+                // return the index of the direct pointer
                 return index;
             }
         }
+
+        // we found no free direct pointers
         return FileSystemHelper.INVALID;
     }
 
-
-
+    /**
+     * Find the block that the offset is currently pointing to.
+     *
+     * @param offset from the start of the file
+     * @return the block that the offset is pointing to
+     */
     public short findTargetBlock(int offset) {
         int blockNumber = offset / Disk.blockSize;
 
+        // the block is not handled by a direct pointer
         if (blockNumber >= FileSystemHelper.directSize) {
-            if(this.indirect == FileSystemHelper.FREE) {
-                return this.indirect;
+
+            // invalid since it is not in the direct pointers or the indirect pointer
+            if (this.indirect == FileSystemHelper.FREE) {
+                return FileSystemHelper.INVALID;
             }
+
+            // the indirect pointer has the target block, read info in and return
             byte blockData[] = new byte[Disk.blockSize];
             SysLib.rawread(this.indirect, blockData);
+
             return SysLib.bytes2short(blockData, ((blockNumber - FileSystemHelper.directSize) * 2));
+
+        // the block is in the direct pointers, return the direct pointer
         } else {
             return this.direct[blockNumber];
         }
     }
 
+    /**
+     * Reads in the data for the indirect pointer for a given blockNumber.
+     *
+     * @param blockNumber to read data for the indirect pointer
+     */
     public void setIndirectPointer(short blockNumber) {
+        // read indirect data into buffer
         byte blockData[] = new byte[Disk.blockSize];
-        int offset = 0;
         SysLib.rawread(this.indirect, blockData);
 
+        int offset = 0;
+
+        // write indirect data
         for (int index = 0; index < FileSystemHelper.TOTAL_POINTERS; index++) {
 
             if (SysLib.bytes2short(blockData, offset) ==  FileSystemHelper.FREE) {
@@ -142,21 +194,28 @@ public class Inode {
                 SysLib.rawwrite(this.indirect, blockData);
                 return;
             }
+
             offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
         }
     }
 
-    public void setIndexBlock(short indexBlockNumber) {
-        this.indirect = indexBlockNumber;
-        byte blockData[] = new byte[Disk.blockSize];
-        int offset = 0;
-        short indexPtr = FileSystemHelper.FREE;
-
-        for (int index = 0; index < FileSystemHelper.TOTAL_POINTERS; index++) {
-            SysLib.short2bytes(indexPtr, blockData, offset);
-            offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
-        }
-
-        SysLib.rawwrite(indexBlockNumber, blockData);
+    /**
+     * Sets the indirect pointer to the blockNumber specified.
+     *
+     * @param blockNumber to set the indirect pointer to
+     */
+    public void setIndirectBlock(short blockNumber) {
+        this.indirect = blockNumber;
+        this.setIndirectPointer(this.indirect);
+//        byte blockData[] = new byte[Disk.blockSize];
+//        int offset = 0;
+//        short indexPtr = FileSystemHelper.FREE;
+//
+//        for (int index = 0; index < FileSystemHelper.TOTAL_POINTERS; index++) {
+//            SysLib.short2bytes(indexPtr, blockData, offset);
+//            offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
+//        }
+//
+//        SysLib.rawwrite(blockNumber, blockData);
     }
 }
