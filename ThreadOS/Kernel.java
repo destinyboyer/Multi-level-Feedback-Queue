@@ -203,25 +203,20 @@ public class Kernel
                         if (myTcb != null) {
                             String fileInfo[] = (String[]) args;
                             entry = fileSystem.open(fileInfo[0], fileInfo[1]);
-                        }
-                        if (entry == null) {
-                            return ERROR;
-                        }
 
-                        if (fileSystem.close(entry) == OK) {
-                            return OK;
+                            return myTcb.getFd(entry);
                         }
+                        return ERROR;
 
-
-                        return OK;
                     case CLOSE:   // to be implemented in project
                         return OK;
                     case SIZE:    // to be implemented in project
                         return OK;
                     case SEEK:    // to be implemented in project
                         return OK;
-                    case FORMAT:  // to be implemented in project
-                        return OK;
+
+                    case FORMAT:
+                        return fileSystem.format(param);
                     case DELETE:  // to be implemented in project
                         return OK;
 

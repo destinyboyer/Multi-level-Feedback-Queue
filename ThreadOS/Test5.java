@@ -18,10 +18,10 @@ class Test5 extends Thread {
   }
 
   public void run( ) {
-    if ( test1( ) ) // format with specified # of files
-      SysLib.cout("Correct behavior of format......................2\n");
-//    if ( test2( ) ) // open "css430" with "w+"
-//      SysLib.cout("Correct behavior of open........................2\n");
+//    if ( test1( ) ) // format with specified # of files
+//      SysLib.cout("Correct behavior of format......................2\n");
+    if ( test2( ) ) // open "css430" with "w+"
+      SysLib.cout("Correct behavior of open........................2\n");
 //    if ( test3( ) ) // write buf[16]
 //      SysLib.cout("Correct behavior of writing a few bytes.........2\n");
 //    if ( test4( ) ) // close fd

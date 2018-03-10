@@ -8,6 +8,9 @@ public class FileSystem {
     private final int SEEK_CUR = 1;
     private final int SEEK_END = 2;
 
+    public final static int SUCCESS = 0;
+    public final static int ERROR = -1;
+
     //constructor
     public FileSystem(int diskBlocks) {
 
@@ -15,16 +18,16 @@ public class FileSystem {
         directory = new Directory(superblock.getTotalINodes());
         filetable = new FileTable(directory);
 
-        // TODO: getting errors here
-//        FileTableEntry dirEnt = open("/", "r");
-//        int dirSize = fileSize(dirEnt);
-//        if (dirSize > 0) {
-//            byte[] dirData = new byte[dirSize];
-//            read(dirEnt, dirData);
-//            directory.bytes2directory(dirData);
-//        }
-//
-//        close(dirEnt.iNumber);
+        //Open base
+        FileTableEntry entry = open("/", Mode.READ_ONLY);
+        int dSize = fileSize(entry);
+        if (dSize > 0) {
+            byte[] dirData = new byte[dSize];
+            read(entry, dirData);
+            directory.bytes2directory(dirData);
+        }
+
+        close(entry);
     }
 
     //Formats the disk (Disk.java's data contents). The parameter
@@ -32,16 +35,14 @@ public class FileSystem {
     //number of inodes to be allocated) in your file system. The
     //return value is 0 on success, otherwise -1.
     public int format(int files) {
+        // check for a system of at least 1 file, and make sure that our
+        // that our file table is empty before formatting
+        if (files > 0 && filetable.fempty()) {
+            superblock.format(files);
+            return SUCCESS;
+        }
 
-        //check for a system of at least 1 file
-        if (files <= 0)
-            return -1;
-
-        superblock.format(files);
-        directory = new Directory(superblock.getTotalINodes());
-        filetable = new FileTable(directory);
-
-        return 0;
+        return ERROR;
     }
 
 
@@ -87,42 +88,41 @@ public class FileSystem {
 
     //Reads up to buffer.length bytes from the file indicated by fd,
     //starting at the position currently pointed to by the seek pointer.
-    public int read(int fd, byte buffer[]) {
-        FileTableEntry temp = filetable.table.get(fd);
+    public int read(FileTableEntry entry, byte buffer[]) {
 
         //mode is w/a return -1 for error
-        if (temp.mode.equals(Mode.WRITE_ONLY) || temp.mode.equals(Mode.APPEND))
+        if (entry.mode.equals(Mode.WRITE_ONLY) || entry.mode.equals(Mode.APPEND))
             return -1;
 
-        synchronized (temp) {
+        synchronized (entry) {
             if (buffer == null || buffer.length == 0)
                 return FileSystemHelper.INVALID;
 
             int buffSize = buffer.length;
-            int fileSize = fileSize(temp);
+            int fileSize = fileSize(entry);
             int bRead = 0;
 
             //If bytes remaining between the current seek pointer and the end
             //of file are less than buffer.length, SysLib.read reads as many
             //bytes as possible, putting them into the beginning of buffer.
-            int bID = FileSystemHelper.calculateBlockNumber(temp.seekPtr);
+            int bID = FileSystemHelper.calculateBlockNumber(entry.seekPtr);
 
-            while (temp.seekPtr < fileSize && (buffSize > 0)) {
+            while (entry.seekPtr < fileSize && (buffSize > 0)) {
 
                 byte[] data = new byte[Disk.blockSize];
                 SysLib.rawread(bID, data);
 
                 //increments the seek pointer by the number of bytes to have
                 //been read
-                int start = temp.seekPtr % Disk.blockSize;
+                int start = entry.seekPtr % Disk.blockSize;
                 int blocksLeft = Disk.blockSize - start;
-                int fileLeft = fileSize(temp) - temp.seekPtr;
+                int fileLeft = fileSize(entry) - entry.seekPtr;
                 int smallestLeft = Math.min(blocksLeft, fileLeft);
                 smallestLeft = Math.min(smallestLeft, buffSize);
 
                 System.arraycopy(blocksLeft, start, buffer, bRead, smallestLeft);
                 bRead += smallestLeft;
-                temp.seekPtr += smallestLeft;
+                entry.seekPtr += smallestLeft;
                 buffSize -= smallestLeft;
             }
             //return the number of bytes that have been read
