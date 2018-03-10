@@ -112,6 +112,7 @@ public class FileSystem {
         if (buffer == null || buffer.length == 0)
             return FileSystemHelper.INVALID;
 
+
         int offset = 0;
         int bytesRemaining = buffer.length;
         int fileSize = getFileSize(entry);
@@ -122,8 +123,13 @@ public class FileSystem {
             bytesRemaining = fileSize;
         }
 
-        while (entry.seekPtr < fileSize && (bytesRemaining > 0)) {
+        while (entry.seekPtr < getFileSize(entry) && (bytesRemaining > 0)) {
             short bID = entry.inode.findTargetBlock(entry.seekPtr);
+
+            if (bID < 0 || bID >= FileSystemHelper.directSize) {
+                break;
+            }
+
             byte[] data = new byte[Disk.blockSize];
             SysLib.rawread(bID, data);
 

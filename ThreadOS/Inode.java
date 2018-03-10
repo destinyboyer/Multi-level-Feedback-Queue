@@ -162,7 +162,7 @@ public class Inode {
         if (blockNumber >= FileSystemHelper.directSize) {
 
             // invalid since it is not in the direct pointers or the indirect pointer
-            if (this.indirect == FileSystemHelper.FREE) {
+            if (this.indirect == FileSystemHelper.FREE || this.indirect >= FileSystemHelper.directSize) {
                 return FileSystemHelper.INVALID;
             }
 
