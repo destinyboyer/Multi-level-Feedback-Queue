@@ -35,9 +35,9 @@ public class Inode {
         this.flag = Flag.USED.getValue();
 
         for (int index = 0; index < FileSystemHelper.directSize; index++) {
-            direct[index] = FileSystemHelper.FREE;
+            this.direct[index] = FileSystemHelper.FREE;
         }
-        indirect = FileSystemHelper.FREE;
+        this.indirect = FileSystemHelper.FREE;
     }
 
     /**
@@ -83,14 +83,15 @@ public class Inode {
      * @param iNumber disk block number to save to
      */
     public void toDisk(short iNumber) {
+        // sanity check, should never happen
+        if (iNumber < 0 || iNumber >= FileSystemHelper.directSize) {
+            return;
+        }
+
         byte data[] = new byte[Disk.blockSize];
 
         // calculate the block number for this Inode
         int blockNumber = FileSystemHelper.calculateBlockNumber(iNumber);
-
-        if (blockNumber < 0 || blockNumber >= FileSystemHelper.directSize) {
-            return;
-        }
 
         // read in the data that is currently in the this block
         SysLib.rawread(blockNumber, data);
@@ -213,8 +214,12 @@ public class Inode {
      * @param blockNumber to set the indirect pointer to
      */
     public void setIndirectBlock(short blockNumber) {
-        this.indirect = blockNumber;
+        // sanity check, this should never happen
+        if (blockNumber < 0 || blockNumber >= FileSystemHelper.directSize) {
+            return;
+        }
 
+        this.indirect = blockNumber;
         byte blockData[] = new byte[Disk.blockSize];
         int offset = 0;
         short indexPtr = FileSystemHelper.FREE;
@@ -225,5 +230,33 @@ public class Inode {
         }
 
         SysLib.rawwrite(blockNumber, blockData);
+    }
+
+    public boolean setIndexBlock(short indexBlockNumber) {
+        // check if all direct pointers are used
+        for(int i = 0; i < FileSystemHelper.directSize; i++) {
+            if(this.direct[i] == -1) {
+                return false;
+            }
+        }
+
+        // check if indirect pointer is UNUSED
+        if(this.indirect != -1) {
+            return true;
+        }
+
+        // set indirect pointer to indexBlock number
+        this.indirect = indexBlockNumber;
+        byte block[] = new byte[Disk.blockSize];
+
+        // format the block to 512/2 = 256 pointers, set it to short -1 (2 bytes each)
+        int offset = 0;
+        short indexPtr = -1;
+        for(int i = 0; i < 256; i++) {
+            SysLib.short2bytes(indexPtr, block, offset);
+            offset += 2;
+        }
+        SysLib.rawwrite(indexBlockNumber, block);
+        return true;
     }
 }

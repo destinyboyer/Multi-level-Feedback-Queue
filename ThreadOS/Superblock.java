@@ -6,10 +6,9 @@ public class Superblock {
 
     private static final int DEFAULT_TOTAL_INODE_BLOCKS = 64;
 
-
-    private int totalBlocks;     /* the number of disk blocks */
-    private int totalINodes;     /* the number of inodes */
-    private int freeList;        /* the block number of the free list's head */
+    public int totalBlocks;     /* the number of disk blocks */
+    public int totalINodes;     /* the number of inodes */
+    public int freeList;        /* the block number of the free list's head */
 
     /**
      * Initializes a Superblock object with the provided disk size.
@@ -17,7 +16,23 @@ public class Superblock {
      * @param diskSize size of disk that we want to initialize
      */
     public Superblock(int diskSize) {
-        this.init(diskSize);
+        // Disk determines our block size
+        byte blockInfo[] = new byte[Disk.blockSize];
+
+        // read in all of the block info into blockInfo buffer
+        SysLib.rawread(0, blockInfo);
+
+        // read the number of disk blocks from blockInfo
+        this.totalBlocks = SysLib.bytes2int(blockInfo, 0);
+        this.totalINodes = SysLib.bytes2int(blockInfo, 4);
+        this.freeList = SysLib.bytes2int(blockInfo, 8);
+
+        // if the configuration that was read from disk is not valid then go
+        // ahead and use a default configuration
+        if (configValid(diskSize) == false) {
+            this.totalBlocks = diskSize;
+            this.format(DEFAULT_TOTAL_INODE_BLOCKS);
+        }
     }
 
     /**
@@ -27,7 +42,16 @@ public class Superblock {
      * @param diskSize size of disk that we want to initialize
      */
     private void init(int diskSize) {
-        this.readSuperblock();
+        // Disk determines our block size
+        byte blockInfo[] = new byte[Disk.blockSize];
+
+        // read in all of the block info into blockInfo buffer
+        SysLib.rawread(0, blockInfo);
+
+        // read the number of disk blocks from blockInfo
+        this.totalBlocks = SysLib.bytes2int(blockInfo, 0);
+        this.totalINodes = SysLib.bytes2int(blockInfo, 4);
+        this.freeList = SysLib.bytes2int(blockInfo, 8);
 
         // if the configuration that was read from disk is not valid then go
         // ahead and use a default configuration
@@ -103,23 +127,6 @@ public class Superblock {
     }
 
     /**
-     * Reads all of the data for a super block and sets the totalBlocks,
-     * totalINodes, and freeList.
-     */
-    private void readSuperblock() {
-        // Disk determines our block size
-        byte blockInfo[] = new byte[Disk.blockSize];
-
-        // read in all of the block info into blockInfo buffer
-        SysLib.rawread(0, blockInfo);
-
-        // read the number of disk blocks from blockInfo
-        this.totalBlocks = SysLib.bytes2int(blockInfo, 0);
-        this.totalINodes = SysLib.bytes2int(blockInfo, 4);
-        this.freeList = SysLib.bytes2int(blockInfo, 8);
-    }
-
-    /**
      * Flushes all of the data from the given block number and sets the
      * free list to the block.
      *
@@ -156,30 +163,6 @@ public class Superblock {
         this.freeList = SysLib.bytes2int(data, 0);
 
         return (short) freeBlock;
-    }
-
-    public int getTotalBlocks() {
-        return totalBlocks;
-    }
-
-    public void setTotalBlocks(int totalBlocks) {
-        this.totalBlocks = totalBlocks;
-    }
-
-    public int getTotalINodes() {
-        return totalINodes;
-    }
-
-    public void setTotalINodes(int totalINodes) {
-        this.totalINodes = totalINodes;
-    }
-
-    public int getFreeList() {
-        return freeList;
-    }
-
-    public void setFreeList(int freeList) {
-        this.freeList = freeList;
     }
 }
 

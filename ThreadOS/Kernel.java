@@ -185,7 +185,7 @@ public class Kernel
                                         return ERROR;
                                     }
 
-
+                                    SysLib.cerr("About to read in Kernel \n\n");
                                     return fileSystem.read(entry, (byte[]) args);
 
                                 }
@@ -249,6 +249,10 @@ public class Kernel
                         if (myTcb != null) {
                             String fileInfo[] = (String[]) args;
                             entry = fileSystem.open(fileInfo[0], fileInfo[1]);
+
+                            if (entry == null) {
+                                return ERROR;
+                            }
 
                             return myTcb.getFd(entry);
                         }

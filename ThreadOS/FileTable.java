@@ -1,6 +1,7 @@
 /**
  *
  */
+
 import java.util.Vector;
 
 public class FileTable {
@@ -81,6 +82,11 @@ public class FileTable {
                 }
             } else {
                 nodeNum = dir.ialloc(filename);
+
+                // did we have enough space in the directory?
+                if (nodeNum == FileSystemHelper.INVALID) {
+                    return null;
+                }
                 node = new Inode(nodeNum);
                 break;
             }

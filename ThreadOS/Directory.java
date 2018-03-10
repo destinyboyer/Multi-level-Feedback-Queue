@@ -1,3 +1,5 @@
+import java.util.Arrays;
+
 /**
  * Represents the root directory of the file system. The root directory maintains each
  * file in a different directory entry that contains its file name (maximum 30
@@ -14,8 +16,6 @@ public class Directory {
 
     /* max characters of each file name */
     private static int maxChars = 30;
-
-    private int offset = 0;
 
     /* Directory entries, each element stores the file size for the given index */
     private int fileSizes[];
@@ -54,12 +54,12 @@ public class Directory {
      * @param data directory information to be read from disk
      */
     public void bytes2directory(byte data[]) {
-
+        int offset = 0;
         // Reads in the file sizes from data. Sets the size of the
         // file at index equal to the file size read from data.
         // Also increments our offset.
         for (int index = 0; index < this.fileSizes.length; index++) {
-            this.incrementOffset(FileSystemHelper.INT_BYT_SIZE);
+            offset = offset + FileSystemHelper.INT_BYT_SIZE;
             this.fileSizes[index] = SysLib.bytes2int(data, offset);
         }
 
@@ -68,7 +68,7 @@ public class Directory {
         // our offset.
         for (int index = 0; index < this.fileNames.length; index++) {
 
-            this.incrementOffset(MAX_CHAR_SIZE);
+            offset = (offset + maxChars * FileSystemHelper.SHORT_BYTE_SIZE);
 
             // Creating the fileName populated with data, the offset where it starts
             // and the maximum number of chars
@@ -78,8 +78,6 @@ public class Directory {
             // into the fileNames[index] array (since fileNames is a 2D array).
             fileName.getChars(0, this.fileSizes[index], this.fileNames[index], 0);
         }
-
-        this.resetOffset();
     }
 
     /**
@@ -90,21 +88,22 @@ public class Directory {
         int bufferSize = (this.fileSizes.length * FileSystemHelper.INT_BYT_SIZE) + (this.fileNames.length * MAX_CHAR_SIZE);
 
         // initialize the buffer
-        byte[] buffer = new byte[bufferSize];
+        byte buffer[] = new byte[bufferSize];
+
+        int offset = 0;
 
         // writing the file size to disk
         for (int fileSize : this.fileSizes) {
-            this.incrementOffset(FileSystemHelper.INT_BYT_SIZE);
+            offset = offset + FileSystemHelper.INT_BYT_SIZE;
             SysLib.int2bytes(fileSize, buffer, offset);
         }
 
         for (char[] fileName : this.fileNames) {
-            this.incrementOffset(MAX_CHAR_SIZE);
+            offset = (offset + maxChars * FileSystemHelper.SHORT_BYTE_SIZE);
             byte fileNameBuffer[] = (new String(fileName)).getBytes();
             System.arraycopy(fileNameBuffer, 0, buffer, offset, fileNameBuffer.length);
         }
 
-        this.resetOffset();
         return buffer;
     }
 
@@ -141,6 +140,7 @@ public class Directory {
     public void removeFromDirectory(short iNumber) {
         if (this.isAllocatedINumber(iNumber)) {
             this.fileSizes[iNumber] = FileSystemHelper.NOT_ALLOCATED;
+            Arrays.fill(this.fileNames[iNumber], '\0');
         }
     }
 
@@ -174,29 +174,13 @@ public class Directory {
      */
     private boolean isAllocatedINumber(int iNumber) {
         // out of range
-        if (iNumber >= this.fileSizes.length || iNumber < 0) {
+        if (iNumber >= this.fileSizes.length || iNumber < 0 || this.fileSizes[iNumber] != FileSystemHelper.NOT_ALLOCATED) {
             return false;
         }
 
-        // we can't free a block that isn't yet allocated
-        return (this.fileSizes[iNumber] != FileSystemHelper.NOT_ALLOCATED);
+        return true;
     }
 
-    /**
-     * Resets offset to zero.
-     */
-    private void resetOffset() {
-        this.offset = 0;
-    }
-
-    /**
-     * Increments offset by amount.
-     *
-     * @param amount to add to offset
-     */
-    private void incrementOffset(int amount) {
-        this.offset = this.offset + amount;
-    }
 
     public static int getMaxChars() {
         return maxChars;
@@ -204,14 +188,6 @@ public class Directory {
 
     public static void setMaxChars(int maxChars) {
         Directory.maxChars = maxChars;
-    }
-
-    public int getOffset() {
-        return offset;
-    }
-
-    public void setOffset(int offset) {
-        this.offset = offset;
     }
 
     public int[] getFileSizes() {
