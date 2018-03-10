@@ -99,6 +99,12 @@ public class Inode {
         // calculate the block number for this Inode
         int blockNumber = FileSystemHelper.calculateBlockNumber(iNumber);
 
+        // sanity check, having some errors debugging and getting error
+        // from raw read
+        if (blockNumber < 0 || blockNumber >= FileSystemHelper.directSize) {
+            return;
+        }
+
         // read in the data that is currently in the this block
         SysLib.rawread(blockNumber, data);
 
