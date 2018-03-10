@@ -88,6 +88,10 @@ public class Inode {
         // calculate the block number for this Inode
         int blockNumber = FileSystemHelper.calculateBlockNumber(iNumber);
 
+        if (blockNumber < 0 || blockNumber >= FileSystemHelper.directSize) {
+            return;
+        }
+
         // read in the data that is currently in the this block
         SysLib.rawread(blockNumber, data);
 
@@ -180,6 +184,10 @@ public class Inode {
      * @param blockNumber to read data for the indirect pointer
      */
     public void setIndirectPointer(short blockNumber) {
+        if (this.indirect < 0 || this.indirect >= FileSystemHelper.directSize) {
+            return;
+        }
+
         // read indirect data into buffer
         byte blockData[] = new byte[Disk.blockSize];
         SysLib.rawread(this.indirect, blockData);
@@ -206,16 +214,16 @@ public class Inode {
      */
     public void setIndirectBlock(short blockNumber) {
         this.indirect = blockNumber;
-        this.setIndirectPointer(this.indirect);
-//        byte blockData[] = new byte[Disk.blockSize];
-//        int offset = 0;
-//        short indexPtr = FileSystemHelper.FREE;
-//
-//        for (int index = 0; index < FileSystemHelper.TOTAL_POINTERS; index++) {
-//            SysLib.short2bytes(indexPtr, blockData, offset);
-//            offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
-//        }
-//
-//        SysLib.rawwrite(blockNumber, blockData);
+
+        byte blockData[] = new byte[Disk.blockSize];
+        int offset = 0;
+        short indexPtr = FileSystemHelper.FREE;
+
+        for (int index = 0; index < FileSystemHelper.TOTAL_POINTERS; index++) {
+            SysLib.short2bytes(indexPtr, blockData, offset);
+            offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
+        }
+
+        SysLib.rawwrite(blockNumber, blockData);
     }
 }

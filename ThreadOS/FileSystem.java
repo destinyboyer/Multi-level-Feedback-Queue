@@ -178,6 +178,9 @@ public class FileSystem {
                     entry.inode.setIndirectBlock(blockNumber);
                 }
             } else {
+                if (blockNumber < 0 || blockNumber >= FileSystemHelper.directSize) {
+                    continue;
+                }
                 SysLib.rawread(blockNumber, data); // read from currBlock
             }
 
