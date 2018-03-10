@@ -185,7 +185,7 @@ public class Kernel
                                         return ERROR;
                                     }
 
-                                    SysLib.cerr("About to read in Kernel \n\n");
+                                    // SysLib.cerr("About to read in Kernel \n\n");
                                     return fileSystem.read(entry, (byte[]) args);
 
                                 }
