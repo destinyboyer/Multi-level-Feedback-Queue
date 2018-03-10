@@ -4,11 +4,17 @@
  */
 public class Superblock {
 
+    /* for if we are not given a number, or the number is not valid */
     private static final int DEFAULT_TOTAL_INODE_BLOCKS = 64;
 
-    public int totalBlocks;     /* the number of disk blocks */
-    public int totalINodes;     /* the number of inodes */
-    public int freeList;        /* the block number of the free list's head */
+    /* the number of disk blocks */
+    public int totalBlocks;
+
+    /* the number of inodes */
+    public int totalINodes;
+
+    /* the block number of the free list's head */
+    public int freeList;
 
     /**
      * Initializes a Superblock object with the provided disk size.
@@ -16,32 +22,11 @@ public class Superblock {
      * @param diskSize size of disk that we want to initialize
      */
     public Superblock(int diskSize) {
-        // Disk determines our block size
-        byte blockInfo[] = new byte[Disk.blockSize];
-
-        // read in all of the block info into blockInfo buffer
-        SysLib.rawread(0, blockInfo);
-
-        // read the number of disk blocks from blockInfo
-        this.totalBlocks = SysLib.bytes2int(blockInfo, 0);
-        this.totalINodes = SysLib.bytes2int(blockInfo, 4);
-        this.freeList = SysLib.bytes2int(blockInfo, 8);
-
-        // if the configuration that was read from disk is not valid then go
-        // ahead and use a default configuration
-        if (configValid(diskSize) == false) {
-            this.totalBlocks = diskSize;
-            this.format(DEFAULT_TOTAL_INODE_BLOCKS);
+        // validity check, just in case
+        if (diskSize < 0) {
+            return;
         }
-    }
 
-    /**
-     * Initializes a Superblock object with the provided disk size. If the information read from
-     * disk is not valid then a default configuration will be used.
-     *
-     * @param diskSize size of disk that we want to initialize
-     */
-    private void init(int diskSize) {
         // Disk determines our block size
         byte blockInfo[] = new byte[Disk.blockSize];
 
@@ -73,13 +58,18 @@ public class Superblock {
     }
 
     /**
+     * Formats the Superblock.
+     *
      * @param totalINodes maximum number of files to be created
      */
     public void format(int totalINodes) {
         this.totalINodes = totalINodes;
+
         // calculate the pointer for freeList.
         this.freeList = (FileSystemHelper.SHORT_BYTE_SIZE) * (this.totalINodes * FileSystemHelper.INODE_BYTE_SIZE) / Disk.blockSize;
 
+        // this takes care of situations where we are given an odd OR even
+        // number of total Inodes
         if (this.totalINodes % 16 != 0) {
             this.freeList = (this.totalINodes / 16) + 2;
         } else {
@@ -107,6 +97,7 @@ public class Superblock {
             SysLib.rawwrite(blockIndex, data);
         }
 
+        // write the super block to disk
         this.writeSuperblock();
     }
 
@@ -135,18 +126,19 @@ public class Superblock {
     public void freeBlock(int blockNumber) {
         byte data[] = new byte[Disk.blockSize];
 
+        // clear all of the data
         for(int index = 0; index < Disk.blockSize; index++) {
             data[index] = 0;
         }
 
-        // scrub all data from that block
+        // write to disk
         SysLib.int2bytes(this.freeList, data, 0);
         SysLib.rawwrite(blockNumber, data);
         this.freeList = blockNumber;
     }
 
     /**
-     * Gets the freeblock and reads that blocks data.
+     * Gets the free block and reads that blocks data.
      *
      * @return the iNumber of the free block.
      */
@@ -156,13 +148,14 @@ public class Superblock {
             return FileSystemHelper.INVALID;
         }
 
-        int freeBlock = this.freeList;
-
+        // we have a free block
+        // read the free block's info
         byte data[] = new byte[Disk.blockSize];
-        SysLib.rawread(freeBlock, data);
+        SysLib.rawread(this.freeList, data);
         this.freeList = SysLib.bytes2int(data, 0);
 
-        return (short) freeBlock;
+        // return the iNumber for our free block
+        return (short) this.freeList;
     }
 }
 

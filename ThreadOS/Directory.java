@@ -40,6 +40,8 @@ public class Directory {
             fileSizes[index] = 0;
         }
 
+        // initialize filenames array to be max Inodes long, with each file
+        // name able to be maxChars in length
         fileNames = new char[maxInumber][maxChars];
 
         // initializes the name and size of the root directory
@@ -82,6 +84,8 @@ public class Directory {
 
     /**
      * Converts a Directory instance to a byte array to be written to disk.
+     *
+     * @return a byte array of all of the contents of the directory
      */
     public byte[] directory2bytes( ) {
         // buffer size is equal to the sum of the number of bytes of fileNames and fileSizes
@@ -92,12 +96,13 @@ public class Directory {
 
         int offset = 0;
 
-        // writing the file size to disk
+        // getting the fileSize and adding it to the buffer
         for (int fileSize : this.fileSizes) {
             offset = offset + FileSystemHelper.INT_BYT_SIZE;
             SysLib.int2bytes(fileSize, buffer, offset);
         }
 
+        // getting the names of the files and adding them to the buffer
         for (char[] fileName : this.fileNames) {
             offset = (offset + maxChars * FileSystemHelper.SHORT_BYTE_SIZE);
             byte fileNameBuffer[] = (new String(fileName)).getBytes();
@@ -117,8 +122,8 @@ public class Directory {
         for (short iNodeBlock = 0; iNodeBlock < this.fileSizes.length; iNodeBlock++) {
             int file = this.fileSizes[iNodeBlock];
 
-            // checks if the node is free, if so sets the size and name of the node.
-            if (file == 0) {    // if this node is free
+            // checks if the node is unused
+            if (file == 0) {
                 file = fileName.length();
                 fileName.getChars(0, file, this.fileNames[iNodeBlock], 0);
 
@@ -138,8 +143,13 @@ public class Directory {
      * @param iNumber file to delete
      */
     public void removeFromDirectory(short iNumber) {
+        // make sure the Inode is actually allocated before we deallocate
         if (this.isAllocatedINumber(iNumber)) {
+
+            // set it to not be allocated any longer
             this.fileSizes[iNumber] = FileSystemHelper.NOT_ALLOCATED;
+
+            // fill what was the fileName of the file we just deallocated with placeholder
             Arrays.fill(this.fileNames[iNumber], '\0');
         }
     }
@@ -150,6 +160,8 @@ public class Directory {
      * @param fileName whose iNumber we want to fetch
      */
     public short getInumberByFileName(String fileName) {
+
+        // iterate over each of our file names until we find a matching one
         for (short index = 0; index < this.fileSizes.length; index++) {
 
             // if they do not have a matching length then we will for sure know that they
@@ -163,6 +175,8 @@ public class Directory {
                 return index;
             }
         }
+
+        // no files that match fileName are in the directory
         return FileSystemHelper.INVALID;
     }
 
@@ -173,12 +187,7 @@ public class Directory {
      * @param iNumber block to check for validity
      */
     private boolean isAllocatedINumber(int iNumber) {
-        // out of range
-        if (iNumber >= this.fileSizes.length || iNumber < 0 || this.fileSizes[iNumber] != FileSystemHelper.NOT_ALLOCATED) {
-            return false;
-        }
-
-        return true;
+        return(iNumber >= this.fileSizes.length || iNumber < 0 || this.fileSizes[iNumber] != FileSystemHelper.NOT_ALLOCATED);
     }
 
 
