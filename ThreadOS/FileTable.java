@@ -40,7 +40,7 @@ public class FileTable {
             if(nodeNum >= 0)
             {
                 node = new Inode(nodeNum);
-                if(mode.equals(FileSystemHelper.READ_ONLY))
+                if(mode.equals(Mode.READ_ONLY))
                 {
                     if(node.flag == 3)
                     {

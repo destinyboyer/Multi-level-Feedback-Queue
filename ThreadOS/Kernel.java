@@ -199,9 +199,10 @@ public class Kernel
 
                     case OPEN:
                         myTcb = scheduler.getMyTcb();
+                        FileTableEntry entry = null;
                         if (myTcb != null) {
                             String fileInfo[] = (String[]) args;
-                            FileTableEntry entry = fileSystem.open(fileInfo[0], fileInfo[1]);
+                            entry = fileSystem.open(fileInfo[0], fileInfo[1]);
                         }
                         if (entry == null) {
                             return ERROR;

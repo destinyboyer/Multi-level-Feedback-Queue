@@ -264,19 +264,19 @@ public class FileSystem {
 
     // TODO: I don't think we should synchronize here, especially when it is on a loca
     // variable
-    public int close(int fd) {
-        FileTableEntry temp = filetable.table.get(fd);
-        if (temp == null)
+    public int close(FileTableEntry entry) {
+        if (entry == null)
             return -1;
 
-        synchronized (temp) {
-
-            temp.count--;
-            if (temp.count == 0)
-                filetable.ffree(filetable.table.elementAt(fd));
-
-            return 0;
-        }
+        return 0;
+//        synchronized (entry) {
+//
+//            entry.count--;
+//            if (entry.count == 0)
+//                filetable.ffree(filetable.table.elementAt(fd));
+//
+//            return 0;
+//        }
     }
 
     //Deletes the file specified by fileName.
@@ -292,7 +292,7 @@ public class FileSystem {
             FileTableEntry entry = filetable.table.get(iNumber);
             deallocateBlocksForEntry(entry); // release all blocks
 
-            close(iNumber); // set flags, write to disk, remove from ftEnt
+            //close(iNumber); // set flags, write to disk, remove from ftEnt
             directory.removeFromDirectory(iNumber);
             return 0;
         }
