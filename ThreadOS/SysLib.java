@@ -13,7 +13,6 @@ public class SysLib {
      * @return 0 on success, -1 otherwise
      */
     public static int format(int files) {
-        SysLib.cerr("Inside format in SysLib");
         return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE,
                 Kernel.FORMAT, files, null);
     }

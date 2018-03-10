@@ -8,21 +8,22 @@ public class FileSystem {
     private final int SEEK_CUR = 1;
     private final int SEEK_END = 2;
 
-    public final static int SUCCESS = 0;
-    public final static int ERROR = -1;
+    /* for clarity of return values */
+    private final static int SUCCESS = 0;
+    private final static int ERROR = -1;
 
-    //constructor
+    /**
+     * Constructor.
+     */
     public FileSystem(int diskBlocks) {
 
         superblock = new Superblock(diskBlocks);
-
-
         directory = new Directory(superblock.getTotalINodes());
         filetable = new FileTable(directory);
 
         //Open base
         FileTableEntry entry = open("/", Mode.READ_ONLY);
-        int dSize = fileSize(entry);
+        int dSize = getFileSize(entry);
         if (dSize > 0) {
             byte[] dirData = new byte[dSize];
             read(entry, dirData);
@@ -32,22 +33,24 @@ public class FileSystem {
         close(entry);
     }
 
-    //Formats the disk (Disk.java's data contents). The parameter
-    //files specifies the maximum number of files to be created (the
-    //number of inodes to be allocated) in your file system. The
-    //return value is 0 on success, otherwise -1.
-    public int format(int files) {
-        // check for a system of at least 1 file, and make sure that our
-        // that our file table is empty before formatting
-        if (files > 0 && filetable.fempty()) {
-            SysLib.cerr("inside format in FileSystem");
-            superblock.format(files);
+    /**
+     * Formats the disk (Disk.java's data contents). The parameter
+     * files specifies the maximum number of files to be created (the
+     * number of inodes to be allocated) in your file system. The
+     * return value is 0 on success, otherwise -1.
+     *
+     * @param numFiles to format for
+     * @return 0 indicating success, -1 indicating error
+     */
+    public int format(int numFiles) {
+        // check for a system of at least 1 file
+        if (numFiles > 0) {
+            superblock.format(numFiles);
             return SUCCESS;
         }
 
         return ERROR;
     }
-
 
     /**
      * Opens the file specified by the fileName string in the given
@@ -65,15 +68,25 @@ public class FileSystem {
 
         // we were able to make a new entry
         if (entry != null) {
-            switch(entry.mode) {
+
+            // what mode was the entry created in?
+            switch (entry.mode) {
+
+                // append functions always point to the end of the file
                 case Mode.APPEND:
-                    entry.seekPtr = this.fileSize(entry);
+                    entry.seekPtr = this.getFileSize(entry);
                     break;
 
-                // cases are all handed the same way but distinguished for
-                // clarity. NOTE the fall through.
+                // write only we always start at the beginning of the file and need
+                // to deallocate all blocks so we can overwrite them
                 case Mode.WRITE_ONLY:
-                    // fall through
+                    entry.seekPtr = FileSystemHelper.BEGINNING_OF_FILE;
+                    if (!this.deallocateBlocksForEntry(entry)) {
+                        return null;
+                    }
+                    break;
+
+                // read only and read write always start at the beginning of the file
                 case Mode.READ_ONLY:
                     // fall through
                 case Mode.READ_WRITE:
@@ -92,45 +105,44 @@ public class FileSystem {
     //Reads up to buffer.length bytes from the file indicated by fd,
     //starting at the position currently pointed to by the seek pointer.
     public int read(FileTableEntry entry, byte buffer[]) {
-
         //mode is w/a return -1 for error
         if (entry.mode.equals(Mode.WRITE_ONLY) || entry.mode.equals(Mode.APPEND))
-            return -1;
+            return FileSystemHelper.INVALID;
 
-        synchronized (entry) {
-            if (buffer == null || buffer.length == 0)
-                return FileSystemHelper.INVALID;
+        if (buffer == null || buffer.length == 0)
+            return FileSystemHelper.INVALID;
 
-            int buffSize = buffer.length;
-            int fileSize = fileSize(entry);
-            int bRead = 0;
+        int offset = 0;
+        int bytesRemaining = buffer.length;
+        int fileSize = getFileSize(entry);
+        int buffSize = buffer.length;
+        int bRead = 0;
 
-            //If bytes remaining between the current seek pointer and the end
-            //of file are less than buffer.length, SysLib.read reads as many
-            //bytes as possible, putting them into the beginning of buffer.
-            int bID = FileSystemHelper.calculateBlockNumber(entry.seekPtr);
-
-            while (entry.seekPtr < fileSize && (buffSize > 0)) {
-
-                byte[] data = new byte[Disk.blockSize];
-                SysLib.rawread(bID, data);
-
-                //increments the seek pointer by the number of bytes to have
-                //been read
-                int start = entry.seekPtr % Disk.blockSize;
-                int blocksLeft = Disk.blockSize - start;
-                int fileLeft = fileSize(entry) - entry.seekPtr;
-                int smallestLeft = Math.min(blocksLeft, fileLeft);
-                smallestLeft = Math.min(smallestLeft, buffSize);
-
-                System.arraycopy(blocksLeft, start, buffer, bRead, smallestLeft);
-                bRead += smallestLeft;
-                entry.seekPtr += smallestLeft;
-                buffSize -= smallestLeft;
-            }
-            //return the number of bytes that have been read
-            return bID;
+        if (fileSize < buffSize) {
+            bytesRemaining = fileSize;
         }
+
+        while (entry.seekPtr < fileSize && (bytesRemaining > 0)) {
+            short bID = entry.inode.findTargetBlock(entry.seekPtr);
+            byte[] data = new byte[Disk.blockSize];
+            SysLib.rawread(bID, data);
+
+            if (bytesRemaining > Disk.blockSize) {
+                System.arraycopy(data, entry.seekPtr % Disk.blockSize, buffer, offset, Disk.blockSize);
+                bytesRemaining = bytesRemaining - Disk.blockSize;
+                offset = offset + Disk.blockSize;
+                entry.seekPtr = entry.seekPtr + Disk.blockSize;
+                bRead = bRead + Disk.blockSize;
+            } else {
+                System.arraycopy(data, entry.seekPtr % Disk.blockSize, buffer, offset, bytesRemaining);
+                bRead = bRead + bytesRemaining;
+                break;
+            }
+        }
+        //return the number of bytes that have been read
+        entry.seekPtr = 0;
+        return bRead;
+
     }
 
 
@@ -163,7 +175,7 @@ public class FileSystem {
                     blockNumber = superblock.getFreeBlock();
                     entry.inode.setIndirectPointer(blockNumber);
                 } else {
-                    entry.inode.setIndexBlock(blockNumber);
+                    entry.inode.setIndirectBlock(blockNumber);
                 }
             } else {
                 SysLib.rawread(blockNumber, data); // read from currBlock
@@ -190,102 +202,93 @@ public class FileSystem {
 
         switch(entry.mode) {
             case Mode.READ_WRITE:
-                int diffInSize = fileSize(entry) - writtenBytes;
+                int diffInSize = getFileSize(entry) - writtenBytes;
                 if(diffInSize < 0) {
                     entry.inode.length = entry.inode.length + Math.abs(diffInSize);
                 }
                 break;
 
             case Mode.APPEND:
-                entry.inode.length = fileSize(entry) + writtenBytes;
+                entry.inode.length = getFileSize(entry) + writtenBytes;
                 break;
 
             default:
                 entry.inode.length = entry.inode.length + writtenBytes;
                 break;
         }
-
         entry.inode.toDisk(entry.iNumber);  // write back to disk
-
         return writtenBytes; // return number of bytes that have been written
     }
 
+    /**
+     * Updates the seek pointer corresponding to fd
+     * The offset can be positive or negative.
+     * The offset location of the seek pointer in the file is
+     * returned from the call to seek.
+     *
+     * @param entry whose seek pointer needs updating
+     * @param offset amount to offset entry's seek pointer
+     * @param whence point to offset from
+     * @return -1 on error, value of updated seek pointer otherwise
+     */
+    public int seek(FileTableEntry entry, int offset, int whence){
+        // can't set the seek pointer for a null entry, bail
+        if(entry == null) {
+            return ERROR;
+        }
 
-    //Writes the contents of buffer to the file indicated by fd, starting
-    //at the position indicated by the seek pointer. The operation may
-    //overwrite existing data in the file and/or append to the end of the file.
-    //SysLib.write increments the seek pointer by the number of bytes to have
-    //been written. The return value is the number of bytes that have been
-    //written, or a negative value upon an error.
+        switch (whence) {
+            case SEEK_SET:
+                entry.seekPtr = offset;
+                break;
 
-    //Updates the seek pointer corresponding to fd
-    //The offset can be positive or negative.
-    //The offset location of the seek pointer in the file is
-    //returned from the call to seek.
-    public int seek(int fd, int offset, int whence){
+            case SEEK_CUR:
+                entry.seekPtr = entry.seekPtr + offset;
+                break;
 
-        FileTableEntry temp = (FileTableEntry)filetable.table.get(fd);
+            case SEEK_END:
+                entry.seekPtr = this.getFileSize(entry) + offset;
+                break;
 
-        if(temp == null)
-            return -1;
+            default:
+                return ERROR;
+        }
+        return entry.seekPtr;
 
-        int ptr = temp.seekPtr;
-
-        //If whence is SEEK_SET (= 0), the file's seek pointer is
-        //set to offset bytes from the beginning of the file
-        if(whence == SEEK_SET)
-            ptr = offset;
-
-        //If whence is SEEK_CUR (= 1), the file's seek pointer is
-        //set to its current value plus the offset.
-        if(whence == SEEK_CUR)
-            ptr = ptr + offset;
-
-        //If whence is SEEK_END (= 2), the file's seek pointer is
-        //set to the size of the file plus the offset.
-        if(whence == SEEK_END)
-            ptr = temp.inode.length + offset;
-
-        //If the user attempts to set the seek pointer to a
-        //negative number you must clamp it to zero.
-        if(ptr < 0)
-            ptr = 0;
-
-        //If the user attempts to set the pointer to beyond the file size,
-        //you must set the seek pointer to the end of the file.
-        if(ptr > temp.inode.length)
-            ptr = temp.inode.length;
-
-        filetable.table.elementAt(fd).seekPtr = ptr;
-        return 0;
     }
 
-    //Closes the file corresponding to fd, commits all file
-    //transactions on this file, and unregisters fd from the user
-    //file descriptor table of the calling thread's TCB. The return
-    //value is 0 in success, otherwise -1.
-
-    // TODO: I don't think we should synchronize here, especially when it is on a loca
-    // variable
+    /**
+     * Closes the file corresponding to fd, commits all file
+     * transactions on this file, and unregisters fd from the user
+     * file descriptor table of the calling thread's TCB. The return
+     * value is 0 in success, otherwise -1.
+     *
+     * @param entry file table entry to close
+     * @return 0 on success, -1 otherwise
+     */
     public int close(FileTableEntry entry) {
         if (entry == null)
-            return -1;
+            return ERROR;
 
-        return 0;
-//        synchronized (entry) {
-//
-//            entry.count--;
-//            if (entry.count == 0)
-//                filetable.ffree(filetable.table.elementAt(fd));
-//
-//            return 0;
-//        }
+        entry.inode.count--;
+        entry.count--;
+        entry.inode.flag = 0;
+        if (filetable.ffree(entry)) {
+            return SUCCESS;
+        }
+
+        return ERROR;
     }
 
-    //Deletes the file specified by fileName.
-    //All blocks used by file are freed. If the file is currently
-    //open, it is not deleted and the operation returns a -1. If
-    // successfully deleted a 0 is returned.
+    /**
+     * Deletes the file specified by fileName.
+     * All blocks used by file are freed. If the file is currently
+     * open, it is not deleted and the operation returns a -1. If
+     * successfully deleted a 0 is returned.
+     *
+     * @param fileName of the file to delete
+     * @return 0 indicating success, -1 if error
+     */
     public synchronized int delete(String fileName) {
 
         short iNumber = directory.getInumberByFileName(fileName);
@@ -295,62 +298,73 @@ public class FileSystem {
             FileTableEntry entry = filetable.table.get(iNumber);
             deallocateBlocksForEntry(entry); // release all blocks
 
-            //close(iNumber); // set flags, write to disk, remove from ftEnt
             directory.removeFromDirectory(iNumber);
-            return 0;
+            return SUCCESS;
         }
 
-        return -1;
+        return ERROR;
 
     }
 
-    private void deallocateBlocksForEntry(FileTableEntry fileTableEntry) {
-        if (fileTableEntry == null) {
-            return;
+    private boolean deallocateBlocksForEntry(FileTableEntry entry) {
+        if (entry == null) {
+            return false;
         }
 
-        if (deallocateIndirectBlocks(fileTableEntry) == false) {
-            return;
-        }
+        this.deallocateDirectBlocks(entry);
 
-        this.deallocateDirectBlocks(fileTableEntry);
-        fileTableEntry.inode.toDisk(fileTableEntry.iNumber);
+        deallocateIndirectBlocks(entry);
+        entry.inode.toDisk(entry.iNumber);
+        return true;
     }
 
-    private void deallocateDirectBlocks(FileTableEntry fileTableEntry) {
-        for (int index = 0; index < FileSystemHelper.directSize; index++) {
-            if(fileTableEntry.inode.direct[index] != FileSystemHelper.FREE) {
-                superblock.freeBlock(fileTableEntry.inode.direct[index]);
-                fileTableEntry.inode.direct[index] = FileSystemHelper.FREE;
+    private void deallocateDirectBlocks(FileTableEntry entry) {
+        for (int index = 0; index < entry.inode.direct.length; index++) {
+            if (entry.inode.direct[index] != FileSystemHelper.FREE) {
+
+                this.superblock.freeBlock(entry.inode.direct[index]);
+                entry.inode.direct[index] = FileSystemHelper.FREE;
+
             }
         }
     }
 
-    private boolean deallocateIndirectBlocks(FileTableEntry fileTableEntry) {
-        if (fileTableEntry.inode.indirect == FileSystemHelper.INVALID) {
-            return false;
+    private void deallocateIndirectBlocks(FileTableEntry entry) {
+
+        // indirect block was never allocated, therefore we don't need to deallocate it
+        if (entry.inode.indirect == FileSystemHelper.INVALID) {
+            return;
         }
 
         byte[] data = new byte[Disk.blockSize];
-        SysLib.rawread(fileTableEntry.inode.indirect, data);
-        fileTableEntry.inode.indirect = FileSystemHelper.FREE;
+        SysLib.rawread(entry.inode.indirect, data);
 
-        int blockNumber = SysLib.bytes2short(data, 0);
-        if (blockNumber != FileSystemHelper.FREE) {
-            superblock.freeBlock(blockNumber);
+        int offset = 0;
+
+        for (int index = 0; index < FileSystemHelper.TOTAL_POINTERS; index++) {
+            int blockPointer = SysLib.bytes2short(data, offset);
+
+            if (blockPointer != FileSystemHelper.FREE) {
+                this.superblock.freeBlock(blockPointer);
+                SysLib.short2bytes((short) -1, data, offset);
+                offset = offset + FileSystemHelper.SHORT_BYTE_SIZE;
+            }
         }
-        return true;
+
+        SysLib.rawwrite(entry.inode.indirect, data);
     }
 
-
-    //Returns the size in bytes of the file indicated by fd.
-    public int fileSize(FileTableEntry entry) {
-        if (entry == null) {
+    /**
+     * Returns the size in bytes of the entry.
+     *
+     * @param file to calculate the size for
+     * @return size of entry in bytes
+     */
+    public int getFileSize(FileTableEntry file) {
+        if (file == null) {
             return FileSystemHelper.INVALID;
         }
 
-        return entry.inode.length;
+        return file.inode.length;
     }
-
-
 }

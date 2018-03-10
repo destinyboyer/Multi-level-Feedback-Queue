@@ -1,91 +1,87 @@
-/*Edited FileTable class for CSS430 Final Project
-
-
+/**
+ *
  */
 import java.util.Vector;
 
 public class FileTable {
 
-    public Vector<FileTableEntry> table;        // the actual entity of this file table
-    private Directory dir;                      // the root directory
+    /* the actual entity of this file table */
+    public Vector<FileTableEntry> table;
 
+    /* the root directory */
+    private Directory dir;
 
-    public FileTable( Directory directory ) { // constructor
-        table = new Vector( );     // instantiate a file (structure) table
-        dir = directory;           // receive a reference to the Director
-    }                             // from the file system
+    /**
+     * Constructor.
+     */
+    public FileTable( Directory directory ) {
+        table = new Vector();
+        dir = directory;
+    }
 
-    // major public methods
-    // allocate a new file (structure) table entry for this file name
-    public synchronized FileTableEntry falloc( String filename, String mode ) {
+    /**
+     * Allocate a new {@link FileTableEntry} with the given filename and mode and add
+     * it to the table.
+     *
+     * @param filename for the new file
+     * @param mode the file can be accessed in
+     * @return the new FileTableEntry for the file, null if error or no space left in table
+     */
+    public synchronized FileTableEntry falloc(String filename, String mode) {
         Inode node = null;
         //nodeNum has to be a short because of Inode
         short nodeNum = -1;
 
         //check for "/" or file name
-        if(filename.equals("/"))
+        if (filename.equals("/"))
             nodeNum = 0;
         else
             nodeNum = dir.getInumberByFileName(filename);
 
-        while(true)
-        {
+        while (true) {
             //check for "/" or file name
-            if(filename.equals("/"))
+            if (filename.equals("/"))
                 nodeNum = 0;
             else
                 nodeNum = dir.getInumberByFileName(filename);
 
             //Check for file
-            if(nodeNum >= 0)
-            {
+            if (nodeNum >= 0) {
                 node = new Inode(nodeNum);
-                if(mode.equals(Mode.READ_ONLY))
-                {
-                    if(node.flag == 3)
-                    {
-                        try{
+                if (mode.equals(Mode.READ_ONLY)) {
+                    if (node.flag == 3) {
+                        try {
                             wait();
-                        } catch(InterruptedException e) {}
+                        } catch (InterruptedException e) {
+                        }
                         break;
-                    }
-                    else if(node.flag == 4)
-                    {
+                    } else if (node.flag == 4) {
                         nodeNum = -1;
                         return null;
-                    }
-                    else{
+                    } else {
                         node.flag = 2;
                         break;
                     }
-                }
-
-                else
-                {
+                } else {
                     //if the node hasn't been edited at all, it's write(3)
-                    if(node.flag == 0 || node.flag == 1)
+                    if (node.flag == 0 || node.flag == 1)
                         node.flag = 3;
 
                         //if the node is busy, wait
-                    else if(node.flag == 2 || node.flag == 3)
-                    {
-                        try{
+                    else if (node.flag == 2 || node.flag == 3) {
+                        try {
                             wait();
-                        } catch (InterruptedException e) {}
+                        } catch (InterruptedException e) {
+                        }
                         break;
-                    }
-
-                    else if(node.flag == 4)
-                    {
+                    } else if (node.flag == 4) {
                         nodeNum = -1;
                         return null;
                     }
                 }
-            }
-            else
-            {
+            } else {
                 nodeNum = dir.ialloc(filename);
-                node = new Inode();
+                node = new Inode(nodeNum);
                 break;
             }
         }
@@ -100,25 +96,24 @@ public class FileTable {
         return retVal;
     }
 
-    public synchronized boolean ffree( FileTableEntry e ) {
-        // receive a file table entry reference
-        Inode node = new Inode(e.iNumber);
-
-        // return true if this file table entry found in my table
-        if(table.contains(e)) {
-
-            e.inode.count--;
-            e.inode.flag = 0;
-
-            // save the corresponding inode to the disk
-            node.toDisk(e.iNumber);
-            // free this file table entry.
-            table.remove(e);
-            return true;
+    /**
+     * Write a file to disk and remove it from the table.
+     *
+     * @param entry to write to disk
+     * @return success of removal
+     */
+    public synchronized boolean ffree(FileTableEntry entry) {
+        if (entry.count != 0) {
+            notifyAll();
         }
-        return false;
+
+        entry.inode.toDisk(entry.iNumber);
+        return this.table.remove(entry);
     }
 
+    /**
+     * Returns whether the file table data mamber is empty.
+     */
     public synchronized boolean fempty( ) {
         return table.isEmpty( );  // return if table is empty
     }                            // should be called before starting a format

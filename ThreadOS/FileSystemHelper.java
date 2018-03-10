@@ -13,7 +13,7 @@ public class FileSystemHelper {
     public final static int BEGINNING_OF_FILE = 0;
 
     public static int calculateBlockNumber(int iNumber) {
-        return iNumber / INODES_PER_BLOCK + 1;
+        return (iNumber / INODES_PER_BLOCK) + 1;
     }
 
     public static int calculateInodeId(int iNumber) {

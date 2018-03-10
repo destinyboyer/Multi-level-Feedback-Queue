@@ -52,6 +52,7 @@ public class Kernel
      -----------------------------------------------------------------*/
 
     private static FileSystem fileSystem;
+    private static FileTableEntry entry;
 
     /*----------------------------------------------------------------*/
 
@@ -168,9 +169,33 @@ public class Kernel
                             case STDERR:
                                 System.out.println( "threaOS: caused read errors" );
                                 return ERROR;
+
+                            /*------------------------------------------------------------------
+                            *                    Added for Final Project
+                            -----------------------------------------------------------------*/
+
+                            default:
+
+                                myTcb = scheduler.getMyTcb();
+
+                                if (myTcb != null) {
+                                    entry = myTcb.getFtEnt(param);
+
+                                    if (entry == null) {
+                                        return ERROR;
+                                    }
+
+
+                                    return fileSystem.read(entry, (byte[]) args);
+
+                                }
+
+                                return ERROR;
+
+                            /*---------------------------------------------------------------*/
+
                         }
-                        // return FileSystem.read( param, byte args[] );
-                        return ERROR;
+
                     case WRITE:
                         switch ( param ) {
                             case STDIN:
@@ -182,6 +207,25 @@ public class Kernel
                             case STDERR:
                                 System.err.print( (String)args );
                                 break;
+
+                            /*------------------------------------------------------------------
+                            *                    Added for Final Project
+                            -----------------------------------------------------------------*/
+                            default:
+
+                                myTcb = scheduler.getMyTcb();
+                                if (myTcb != null) {
+                                    entry = myTcb.getFtEnt(param);
+
+                                    if (entry != null) {
+                                        return fileSystem.write(entry, (byte[]) args);
+                                    }
+
+                                }
+                                return ERROR;
+
+                            /*----------------------------------------------------------------*/
+
                         }
                         return OK;
                     case CREAD:   // to be implemented in assignment 4
@@ -201,7 +245,7 @@ public class Kernel
 
                     case OPEN:
                         myTcb = scheduler.getMyTcb();
-                        FileTableEntry entry = null;
+
                         if (myTcb != null) {
                             String fileInfo[] = (String[]) args;
                             entry = fileSystem.open(fileInfo[0], fileInfo[1]);
@@ -210,17 +254,49 @@ public class Kernel
                         }
                         return ERROR;
 
-                    case CLOSE:   // to be implemented in project
-                        return OK;
-                    case SIZE:    // to be implemented in project
-                        return OK;
-                    case SEEK:    // to be implemented in project
+                    case CLOSE:
+
+                        myTcb = scheduler.getMyTcb();
+                        if (myTcb != null) {
+                            entry = myTcb.returnFd(param);
+
+                            if (entry != null) {
+                                if (fileSystem.close(entry) != -1) {
+                                    return OK;
+                                }
+                            }
+                        }
+
+                        return ERROR;
+
+                    case SIZE:
                         return OK;
 
+
+                    case SEEK:
+                        myTcb = scheduler.getMyTcb();
+                        if (myTcb != null) {
+                            int fileInfo[] = (int[]) args;
+                            entry = myTcb.getFtEnt(fileInfo[0]);
+
+                            if (entry == null) {
+                                return ERROR;
+                            }
+
+                            return fileSystem.seek(entry, fileInfo[1], fileInfo[2]);
+                        }
+
+                        return ERROR;
+
                     case FORMAT:
-                        SysLib.cerr("Inside format in Kernel");
                         return fileSystem.format(param);
-                    case DELETE:  // to be implemented in project
+
+                    case DELETE:
+
+                        if (fileSystem.delete((String) args) != -1) {
+                            return OK;
+                        }
+
                         return OK;
 
                     /*----------------------------------------------------------------*/

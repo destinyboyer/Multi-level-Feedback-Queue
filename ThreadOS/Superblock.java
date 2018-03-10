@@ -6,6 +6,7 @@ public class Superblock {
 
     private static final int DEFAULT_TOTAL_INODE_BLOCKS = 64;
 
+
     private int totalBlocks;     /* the number of disk blocks */
     private int totalINodes;     /* the number of inodes */
     private int freeList;        /* the block number of the free list's head */
@@ -45,7 +46,6 @@ public class Superblock {
      */
     private boolean configValid(int diskSize) {
         return (this.totalBlocks == diskSize && this.totalINodes > 0 && this.freeList >= 2);
-
     }
 
     /**
@@ -53,9 +53,14 @@ public class Superblock {
      */
     public void format(int totalINodes) {
         this.totalINodes = totalINodes;
-
         // calculate the pointer for freeList.
         this.freeList = (FileSystemHelper.SHORT_BYTE_SIZE) * (this.totalINodes * FileSystemHelper.INODE_BYTE_SIZE) / Disk.blockSize;
+
+        if (this.totalINodes % 16 != 0) {
+            this.freeList = (this.totalINodes / 16) + 2;
+        } else {
+            this.freeList = this.totalINodes / 16 + 1;
+        }
 
         Inode inode;
 
@@ -77,6 +82,7 @@ public class Superblock {
             // write the data to the block specified
             SysLib.rawwrite(blockIndex, data);
         }
+
         this.writeSuperblock();
     }
 
@@ -85,6 +91,9 @@ public class Superblock {
      */
     private void writeSuperblock() {
         byte blockInfo[] = new byte[Disk.blockSize];
+
+        SysLib.int2bytes(-1, blockInfo, 0);
+        SysLib.rawwrite(this.totalBlocks - 1, blockInfo);
 
         SysLib.int2bytes(this.totalBlocks, blockInfo, 0);
         SysLib.int2bytes(this.totalINodes, blockInfo, 4);

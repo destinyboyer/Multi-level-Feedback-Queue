@@ -19,23 +19,23 @@ class Test5 extends Thread {
 
   public void run( ) {
     if ( test1( ) ) // format with specified # of files
-      SysLib.cout("Correct behavior of format......................2\n");
+      SysLib.cout("Correct behavior of format......................2\n\n");
     if ( test2( ) ) // open "css430" with "w+"
-      SysLib.cout("Correct behavior of open........................2\n");
-//    if ( test3( ) ) // write buf[16]
-//      SysLib.cout("Correct behavior of writing a few bytes.........2\n");
-//    if ( test4( ) ) // close fd
-//      SysLib.cout("Correct behavior of close.......................2\n");
-//    if ( test5( ) ) // read buf[16] from "css430"
-//      SysLib.cout("Correct behavior of reading a few bytes.........2\n");
-//    if ( test6( ) ) // append buf[32] to "css430"
-//      SysLib.cout("Correct behavior of appending a few bytes.......1\n");
-//    if ( test7( ) ) // seek and read from "css430"
-//      SysLib.cout("Correct behavior of seeking in a small file.....1\n");
-//    if ( test8( ) ) // open "css430" with "w+"
-//      SysLib.cout("Correct behavior of read/writing a small file.0.5\n");
+      SysLib.cout("Correct behavior of open........................2\n\n");
+    if ( test3( ) ) // write buf[16]
+      SysLib.cout("Correct behavior of writing a few bytes.........2\n\n");
+    if ( test4( ) ) // close fd
+      SysLib.cout("Correct behavior of close.......................2\n\n");
+    if ( test5( ) ) // read buf[16] from "css430"
+      SysLib.cout("Correct behavior of reading a few bytes.........2\n\n");
+    if ( test6( ) ) // append buf[32] to "css430"
+      SysLib.cout("Correct behavior of appending a few bytes.......1\n\n");
+    if ( test7( ) ) // seek and read from "css430"
+      SysLib.cout("Correct behavior of seeking in a small file.....1\n");
+    if ( test8( ) ) // open "css430" with "w+"
+      SysLib.cout("Correct behavior of read/writing a small file.0.5\n");
 
-//    test9( );        // open "bothell" with "w+"
+    test9( );        // open "bothell" with "w+"
 //    if ( test10( ) ) // write buf[512 * 13]
 //      SysLib.cout("Correct behavior of writing a lot of bytes....0.5\n");
 //    test11( );       // close fd
@@ -88,6 +88,7 @@ class Test5 extends Thread {
     //.............................................."
     SysLib.cout( "2: fd = open( \"css430\", \"w+\" )...." );
     fd = SysLib.open( "css430", "w+" );
+
     if ( fd != 3 ) {
       SysLib.cout( "fd = " + fd + " (wrong)\n" );
       return false;
