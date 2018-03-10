@@ -17,7 +17,7 @@ public class FileSystem {
 
         // TODO: getting errors here
 //        FileTableEntry dirEnt = open("/", "r");
-//        int dirSize = fsize(dirEnt);
+//        int dirSize = fileSize(dirEnt);
 //        if (dirSize > 0) {
 //            byte[] dirData = new byte[dirSize];
 //            read(dirEnt, dirData);
@@ -44,47 +44,45 @@ public class FileSystem {
         return 0;
     }
 
-    //Opens the file specified by the fileName string in the given
-    //mode.  The call allocates a new file
-    //descriptor, fd to this file. The file is created if it does not
-    //exist in the mode "w", "w+" or "a".
-    public int open(String fileName, String mode) {
 
-        //Checks for proper name, mode, making sure filetable isn't full
-        if (fileName == null || fileName.isEmpty())
-            return -1;
-        if (mode == null || mode.isEmpty())
-            return -1;
-        if (this.filetable.table.size() == FileSystemHelper.INODE_BYTE_SIZE)
-            return -1;
+    /**
+     * Opens the file specified by the fileName string in the given
+     * mode.  The call allocates a new file descriptor, fd to this file.
+     * The file is created if it does not exist in the mode "w", "w+" or "a".
+     *
+     * @param fileName of the file we want to open
+     * @param mode that we want to open the file in
+     * @return null if the mode was invalid, new {@link FileTableEntry} with the
+     *         given fileName and mode otherwise.
+     */
+    public FileTableEntry open(String fileName, String mode) {
+        // create a new entry
+        FileTableEntry entry = filetable.falloc(fileName, mode);
 
+        // we were able to make a new entry
+        if (entry != null) {
+            switch(entry.mode) {
+                case Mode.APPEND:
+                    entry.seekPtr = this.fileSize(entry);
+                    break;
 
-        //check to see if file  in w/w+/a
-        short ref = directory.getInumberByFileName(fileName);
+                // cases are all handed the same way but distinguished for
+                // clarity. NOTE the fall through.
+                case Mode.WRITE_ONLY:
+                    // fall through
+                case Mode.READ_ONLY:
+                    // fall through
+                case Mode.READ_WRITE:
+                    entry.seekPtr = FileSystemHelper.BEGINNING_OF_FILE;
+                    break;
 
-        String name = new String(directory.getFileNames()[ref]);
-
-        if (name.equals(fileName)) {
-            for (int i = 0; i < filetable.table.size(); i++) {
-                if (filetable.table.get(i).iNumber == ref) {
-                    //SysLib.open must return a negative number as an
-                    //error value if the file does not exist in
-                    //the mode "r"
-                    if (filetable.table.get(i).mode.equals(FileSystemHelper.READ_ONLY))
-                        return -1;
-                        //else, allocate the space and open it up
-                    else {
-                        // TODO: I think we need to remove this
-                        // filetable.table.get(i).mode = mode;
-                        filetable.falloc(fileName, mode);
-                        return 0;
-                    }
-                }
+                default:
+                    // was an unrecognized or invalid mode
+                    return null;
             }
         }
-        //if it's not in the table, it's cool just make it
-        filetable.falloc(fileName, mode);
-        return 0;
+
+        return entry;
     }
 
     //Reads up to buffer.length bytes from the file indicated by fd,
@@ -93,7 +91,7 @@ public class FileSystem {
         FileTableEntry temp = filetable.table.get(fd);
 
         //mode is w/a return -1 for error
-        if (temp.mode.equals(FileSystemHelper.WRITE_ONLY) || temp.mode.equals(FileSystemHelper.APPEND))
+        if (temp.mode.equals(Mode.WRITE_ONLY) || temp.mode.equals(Mode.APPEND))
             return -1;
 
         synchronized (temp) {
@@ -101,7 +99,7 @@ public class FileSystem {
                 return FileSystemHelper.INVALID;
 
             int buffSize = buffer.length;
-            int fileSize = fsize(temp.iNumber);
+            int fileSize = fileSize(temp);
             int bRead = 0;
 
             //If bytes remaining between the current seek pointer and the end
@@ -118,7 +116,7 @@ public class FileSystem {
                 //been read
                 int start = temp.seekPtr % Disk.blockSize;
                 int blocksLeft = Disk.blockSize - start;
-                int fileLeft = fsize(fd) - temp.seekPtr;
+                int fileLeft = fileSize(temp) - temp.seekPtr;
                 int smallestLeft = Math.min(blocksLeft, fileLeft);
                 smallestLeft = Math.min(smallestLeft, buffSize);
 
@@ -135,7 +133,7 @@ public class FileSystem {
 
 
     public int write(FileTableEntry entry, byte buffer[]) {
-        if (entry == null || entry.mode.equals(FileSystemHelper.READ_ONLY)) {
+        if (entry == null || entry.mode.equals(Mode.READ_ONLY)) {
             return FileSystemHelper.INVALID;
         }
 
@@ -188,15 +186,15 @@ public class FileSystem {
         }
 
         switch(entry.mode) {
-            case FileSystemHelper.READ_WRITE:
-                int diffInSize = fsize(entry.iNumber) - writtenBytes;
+            case Mode.READ_WRITE:
+                int diffInSize = fileSize(entry) - writtenBytes;
                 if(diffInSize < 0) {
                     entry.inode.length = entry.inode.length + Math.abs(diffInSize);
                 }
                 break;
 
-            case FileSystemHelper.APPEND:
-                entry.inode.length = fsize(entry.iNumber) + writtenBytes;
+            case Mode.APPEND:
+                entry.inode.length = fileSize(entry) + writtenBytes;
                 break;
 
             default:
@@ -343,8 +341,12 @@ public class FileSystem {
 
 
     //Returns the size in bytes of the file indicated by fd.
-    public synchronized int fsize(int fd) {
-        return filetable.table.get(fd).inode.length;
+    public int fileSize(FileTableEntry entry) {
+        if (entry == null) {
+            return FileSystemHelper.INVALID;
+        }
+
+        return entry.inode.length;
     }
 
 
