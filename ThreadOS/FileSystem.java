@@ -26,7 +26,7 @@ public class FileSystem {
         filetable = new FileTable(directory);
 
         // assemble our directory
-        FileTableEntry entry = open("/", Mode.READ_ONLY);
+        FileTableEntry entry = open(FileSystemHelper.DELIMITER, Mode.READ_ONLY);
         int directorySize = this.getFileSize(entry);
 
         if (directorySize > 0) {
@@ -170,9 +170,15 @@ public class FileSystem {
 
     }
 
-
-
+    /**
+     * Writes the contents of the buffer to the file.
+     *
+     * @param entry to write to
+     * @param buffer data to write
+     */
     public int write(FileTableEntry entry, byte buffer[]) {
+
+        // bail if we can't write to it
         if (entry == null || entry.mode.equals(Mode.READ_ONLY)) {
             return FileSystemHelper.INVALID;
         }
@@ -192,6 +198,7 @@ public class FileSystem {
                 blockNumber = superblock.getFreeBlock();
 
                 // if there was a free direct pointer for this block
+                // is there a better way to do this like a switch statement or something? feels weird
                 if (entry.inode.getFreeDirectPoinerForBlock(blockNumber) > FileSystemHelper.FREE) {
                     // do nothing
 
@@ -201,29 +208,44 @@ public class FileSystem {
                     entry.inode.setIndirectPointer(blockNumber);
                 } else {
                     entry.inode.setIndirectBlock(blockNumber);
+                    // break?
                 }
             } else {
+
+                // sanity check, keep getting errors in raw read
                 if (blockNumber < 0 || blockNumber >= FileSystemHelper.directSize) {
                     continue;
                 }
-                SysLib.rawread(blockNumber, data); // read from currBlock
+                SysLib.rawread(blockNumber, data);
             }
 
-            int pointer = entry.seekPtr % Disk.blockSize;
-            int bytesInBlock = Disk.blockSize - pointer;
+            int bytesInBlock = Disk.blockSize - (entry.seekPtr % Disk.blockSize);
 
-            // if there is any data left go ahead and write it
+            // if there is more less data in the buffer than the block then
+            // go ahead and write the rest of the data that is in the buffer to the block
             if(bytesInBlock > bytesInBuffer) {
-                System.arraycopy(buffer, writtenBytes, data, pointer, bytesInBuffer);
+                System.arraycopy(buffer, writtenBytes, data, (entry.seekPtr % Disk.blockSize), bytesInBuffer);
                 SysLib.rawwrite(blockNumber, data);
                 writtenBytes = writtenBytes + bytesInBuffer;
-                bytesInBuffer = bytesInBuffer - bytesInBuffer;
+
+                // because we should have written all of it now
+                bytesInBuffer = 0;
+
+                // increment the seek pointer the number of bytes we have written forward
                 entry.seekPtr = entry.seekPtr + bytesInBuffer;
-            } else { // write to the remainder in blocks
-                System.arraycopy(buffer, writtenBytes, data, pointer, bytesInBlock);
+
+            // we have a whole disk block to go write, so go ahead and do that
+            } else {
+                System.arraycopy(buffer, writtenBytes, data, (entry.seekPtr % Disk.blockSize), bytesInBlock);
                 SysLib.rawwrite(blockNumber, data);
+
+                // wrote a whole block
                 writtenBytes = writtenBytes + bytesInBlock;
+
+                // maybe next time we will land in the first part of this if/else
                 bytesInBuffer = bytesInBuffer - bytesInBlock;
+
+                // update our seek pointer
                 entry.seekPtr = entry.seekPtr + bytesInBlock;
             }
         }
@@ -365,10 +387,18 @@ public class FileSystem {
         return true;
     }
 
+    /**
+     * Deallocates all of the direct blocks for the entry.
+     *
+     * @param entry to deallocate the direct pointer for
+     */
     private void deallocateDirectBlocks(FileTableEntry entry) {
-        for (int index = 0; index < entry.inode.direct.length; index++) {
-            if (entry.inode.direct[index] != FileSystemHelper.FREE) {
 
+        // iterate over the direct pointers
+        for (int index = 0; index < entry.inode.direct.length; index++) {
+
+            // if it is not free, then free it
+            if (entry.inode.direct[index] != FileSystemHelper.FREE) {
                 this.superblock.freeBlock(entry.inode.direct[index]);
                 entry.inode.direct[index] = FileSystemHelper.FREE;
 
@@ -376,6 +406,11 @@ public class FileSystem {
         }
     }
 
+    /**
+     * Deallocates the indirect pointer for the entry.
+     *
+     * @param entry to deallocate the indirect pointer for
+     */
     private void deallocateIndirectBlocks(FileTableEntry entry) {
 
         // indirect block was never allocated, therefore we don't need to deallocate it
@@ -388,6 +423,7 @@ public class FileSystem {
 
         int offset = 0;
 
+        // iterate over the total pointers and free the ones that are not free
         for (int index = 0; index < FileSystemHelper.TOTAL_POINTERS; index++) {
             int blockPointer = SysLib.bytes2short(data, offset);
 

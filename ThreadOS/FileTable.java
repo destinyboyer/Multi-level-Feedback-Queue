@@ -1,5 +1,14 @@
 /**
+ * Holds a table of up to 32 file entries representing the open files in
+ * a directory for a given user.
  *
+ * Each user thread maintains a user file descriptor table in its own {@link TCB}.
+ * Every time it opens a file, it allocates a new entry table including a
+ * reference to the corresponding file (structure) table entry. Whenever a
+ * thread spawns a new child thread, it passes a copy of its TCB to this
+ * child which thus has a copy of its parent's user file descriptor table.
+ * This in turn means the both the parent and the child refer to the same
+ * file (structure) table entries and eventually share the same files.
  */
 import java.util.Vector;
 
@@ -9,14 +18,14 @@ public class FileTable {
     public Vector<FileTableEntry> table;
 
     /* the root directory */
-    private Directory dir;
+    private Directory directory;
 
     /**
      * Constructor.
      */
     public FileTable( Directory directory ) {
         table = new Vector();
-        dir = directory;
+        this.directory = directory;
     }
 
     /**
@@ -28,70 +37,79 @@ public class FileTable {
      * @return the new FileTableEntry for the file, null if error or no space left in table
      */
     public synchronized FileTableEntry falloc(String filename, String mode) {
-        Inode node = null;
-        //nodeNum has to be a short because of Inode
-        short nodeNum = -1;
+
+        Inode iNode = null;
+
+        //iNumber has to be a short because of Inode
+        short iNumber;
 
         //check for "/" or file name
-        if (filename.equals("/"))
-            nodeNum = 0;
-        else
-            nodeNum = dir.getInumberByFileName(filename);
+        if (filename.equals(FileSystemHelper.DELIMITER)) {
+            iNumber = 0;
+        } else {
+            iNumber = directory.getInumberByFileName(filename);
+        }
 
         while (true) {
+
             //check for "/" or file name
-            if (filename.equals("/"))
-                nodeNum = 0;
-            else
-                nodeNum = dir.getInumberByFileName(filename);
+            if (filename.equals(FileSystemHelper.DELIMITER)) {
+                iNumber = 0;
+            } else {
+                iNumber = directory.getInumberByFileName(filename);
+            }
 
             //Check for file
-            if (nodeNum >= 0) {
-                node = new Inode(nodeNum);
+            if (iNumber >= 0) {
+
+                iNode = new Inode(iNumber);
+
                 if (mode.equals(Mode.READ_ONLY)) {
-                    if (node.flag == 3) {
+
+                    if (iNode.flag == FileSystemHelper.FLAG_WRITE) {
                         try {
                             wait();
                         } catch (InterruptedException e) {
+                            // do nothing
                         }
                         break;
-                    } else if (node.flag == 4) {
-                        nodeNum = -1;
+                    } else if (iNode.flag == FileSystemHelper.FLAG_DELETE) {
                         return null;
                     } else {
-                        node.flag = 2;
+                        iNode.flag = FileSystemHelper.FLAG_READ;
                         break;
                     }
                 } else {
-                    //if the node hasn't been edited at all, it's write(3)
-                    if (node.flag == 0 || node.flag == 1)
-                        node.flag = 3;
+                    //if the iNode hasn't been edited at all, it's write(3)
+                    if (iNode.flag == FileSystemHelper.FLAG_UNUSED || iNode.flag == FileSystemHelper.FLAG_USED) {
+                        iNode.flag = FileSystemHelper.FLAG_WRITE;
+                    }
 
-                        //if the node is busy, wait
-                    else if (node.flag == 2 || node.flag == 3) {
+                        //if the iNode is busy, wait
+                    else if (iNode.flag == FileSystemHelper.FLAG_READ || iNode.flag == FileSystemHelper.FLAG_WRITE) {
                         try {
                             wait();
                         } catch (InterruptedException e) {
+                            // do nothing
                         }
                         break;
-                    } else if (node.flag == 4) {
-                        nodeNum = -1;
+                    } else if (iNode.flag == FileSystemHelper.FLAG_DELETE) {
                         return null;
                     }
                 }
             } else {
-                nodeNum = dir.ialloc(filename);
-                node = new Inode(nodeNum);
+                iNumber = directory.ialloc(filename);
+                iNode = new Inode(iNumber);
                 break;
             }
         }
-        // allocate/retrieve and register the corresponding inode using dir
+        // allocate/retrieve and register the corresponding inode using directory
         // increment this inode's count
-        node.count++;
+        iNode.count++;
         // immediately write back this inode to the disk
-        node.toDisk(nodeNum);
+        iNode.toDisk(iNumber);
         // return a reference to this file (structure) table entry
-        FileTableEntry retVal = new FileTableEntry(node, nodeNum, mode);
+        FileTableEntry retVal = new FileTableEntry(iNode, iNumber, mode);
         table.addElement(retVal);
         return retVal;
     }

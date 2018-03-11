@@ -11,6 +11,13 @@ public class FileSystemHelper {
     public final static int TOTAL_POINTERS = 256;
     public final static int NOT_ALLOCATED = 0;
     public final static int BEGINNING_OF_FILE = 0;
+    public final static String DELIMITER = "/";
+
+    public final static int FLAG_UNUSED = 0;
+    public final static int FLAG_USED = 1;
+    public final static int FLAG_READ = 2;
+    public final static int FLAG_WRITE = 3;
+    public final static int FLAG_DELETE = 4;
 
     public static int calculateBlockNumber(int iNumber) {
         return (iNumber / INODES_PER_BLOCK) + 1;

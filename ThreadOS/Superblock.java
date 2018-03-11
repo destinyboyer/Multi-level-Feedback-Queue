@@ -64,20 +64,14 @@ public class Superblock {
         // calculate the pointer for freeList.
         this.freeList = (FileSystemHelper.SHORT_BYTE_SIZE) * (this.totalINodes * FileSystemHelper.INODE_BYTE_SIZE) / Disk.blockSize;
 
-        // this takes care of situations where we are given an odd OR even
-        // number of total Inodes
-        if (this.totalINodes % 16 != 0) {
-            this.freeList = (this.totalINodes / 16) + 2;
-        } else {
-            this.freeList = this.totalINodes / 16 + 1;
-        }
+        this.handleOddOrEven();
 
         Inode inode;
 
         // create new unused Inode and write it to disk
         for (short index = 0; index < totalINodes; index++) {
             inode = new Inode();
-            inode.flag = Flag.UNUSED.getValue();
+            inode.flag = 0; // unused
             inode.toDisk(index);
         }
 
@@ -95,6 +89,16 @@ public class Superblock {
 
         // write the super block to disk
         this.writeSuperblock();
+    }
+
+    // this takes care of situations where we are given an odd OR even
+    // number of total Inodes
+    private void handleOddOrEven() {
+        if (this.totalINodes % 16 != 0) {
+            this.freeList = (this.totalINodes / 16) + 2;
+        } else {
+            this.freeList = this.totalINodes / 16 + 1;
+        }
     }
 
     /**

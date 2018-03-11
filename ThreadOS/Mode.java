@@ -1,5 +1,5 @@
 /**
- * Enum represents the different modes that a File can be opened in.
+ * Represents the different modes that a File can be opened in.
  */
 public class Mode {
     public static final String READ_ONLY = "r";

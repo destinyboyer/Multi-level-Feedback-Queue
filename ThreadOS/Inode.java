@@ -32,7 +32,7 @@ public class Inode {
     Inode() {
         this.length = 0;
         this.count = 0;
-        this.flag = Flag.USED.getValue();
+        this.flag = 1; // used
 
         for (int index = 0; index < FileSystemHelper.directSize; index++) {
             direct[index] = FileSystemHelper.FREE;
